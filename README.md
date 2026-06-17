@@ -14,9 +14,7 @@
 
 This started with a simple observation and a professional frustration.
 
-**The frustration.** I spent years as a platform and automation engineer. The part of the work I loved was the engineering *around* a business-process platform — automating its deployments through a REST API, wiring it into CI/CD, building the observability that made it trustworthy. The part I didn't love was the platform itself: a proprietary, low-code world where the diagram was the deliverable, and it stopped being useful the moment it was drawn.
-
-**The observation.** A "business process diagram" is already an execution specification. Its swimlanes are roles, its tasks are steps, its gateways are decisions, its connections are control flow. The only reason a BPMN diagram isn't *running code* is that nobody compiled it. Most tools that turn English into a process picture treat the picture as the end. It isn't — it's a spec waiting for a compiler.
+ A "business process diagram" is already an execution specification. Its swimlanes are roles, its tasks are steps, its gateways are decisions, its connections are control flow. The only reason a BPMN diagram isn't *running code* is that nobody compiled it. Most tools that turn English into a process picture treat the picture as the end. It isn't — it's a spec waiting for a compiler.
 
 **The bridge.** So this project compiles one. A plain-English description becomes a tiny text format (**PiperFlow**), and that one document is consumed three ways — a stakeholder diagram, an enterprise BPMN XML file, and a live multi-agent program. It connects two worlds I'd lived between: the **BPMN world** stakeholders and BPM suites live in (Camunda, Signavio, Appian), and the **modern agentic world** (Flue, multi-agent systems). Few people speak both fluently; that's the gap this fills.
 
