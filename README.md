@@ -26,7 +26,7 @@ This started with a simple observation and a professional frustration.
 - **Observability is a first-class citizen** — every lane is a named session, every step is a span, every gateway decision is an event. The process is queryable in Grafana, not just drawable.
 - **Self-hosted by default** — it runs on a local model. No per-token cost, no vendor lock-in, no data leaving the box.
 
-**Why it matters.** This is a small but complete demonstration of the platform-engineering instincts the industry hires for: turning ambiguous requirements into a reliable, observable, self-correcting system that wraps existing tools rather than reinventing them. It's also, deliberately, a bridge back to the BPM world — because the best automation doesn't replace what people use, it makes what they already have actually *run*.
+**Why it matters.** turning ambiguous requirements into a reliable, observable, self-correcting system that wraps existing tools rather than reinventing them. It's also, deliberately, a bridge back to the BPM world — because the best automation doesn't replace what people use, it makes what they already have actually *run*.
 
 ---
 
