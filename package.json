@@ -1,0 +1,41 @@
+{
+  "name": "baton",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn a business-process description into a BPMN diagram AND a live Flue agent workflow. One PiperFlow DSL, two consumers: a picture and an executable.",
+  "scripts": {
+    "test:render": "tsx scripts/test-render.ts",
+    "test:compiler": "tsx scripts/test-compiler.ts",
+    "resolve:skills": "tsx scripts/test-resolver.ts",
+    "lock:skills": "tsx scripts/lock-skills.ts",
+    "generate:skills": "tsx scripts/generate-skills.ts",
+    "metrics": "tsx scripts/metrics.ts",
+    "aiops:build": "tsx scripts/build-aiops.ts",
+    "onboard:build": "tsx scripts/build-onboarding.ts",
+    "onboard:demo": "tsx scripts/onboard-demo.ts",
+    "dev": "flue dev --target node",
+    "build": "flue build --target node",
+    "start": "node dist/server.mjs",
+    "run:design": "flue run design-process --target node",
+    "venv": "python3 -m venv .venv && . .venv/bin/activate && pip install -U pip processpiper"
+  },
+  "dependencies": {
+    "@flue/runtime": "latest",
+    "hono": "^4.6.0",
+    "valibot": "^1.0.0"
+  },
+  "devDependencies": {
+    "@flue/cli": "latest",
+    "@flue/opentelemetry": "latest",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.55.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.55.0",
+    "@opentelemetry/sdk-trace-base": "^1.28.0",
+    "@opentelemetry/resources": "^1.28.0",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

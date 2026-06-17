@@ -1,0 +1,10 @@
+{
+  "name": "sample-repo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fixture repo for baton lane tools to operate on.",
+  "scripts": {
+    "test": "node test.js",
+    "build": "node build.js"
+  }
+}

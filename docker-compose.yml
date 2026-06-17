@@ -1,0 +1,33 @@
+# Local observability stack for baton.
+#
+#   docker compose up -d   →  Grafana (http://localhost:3001) + Tempo (traces)
+#
+# Flue emits OpenTelemetry traces via @flue/opentelemetry to the collector.
+# The JSON sink (telemetry/events.jsonl) and /metrics endpoint work without this
+# stack — this is the optional, headline dashboard backend.
+#
+# Then run a workflow with the collector endpoint set:
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 npx flue run gen-... --target node
+
+services:
+  tempo:
+    image: grafana/tempo:latest
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml:ro
+    ports:
+      - "4318:4318"   # OTLP HTTP
+      - "3200:3200"   # tempo query
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - tempo

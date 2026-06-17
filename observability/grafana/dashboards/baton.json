@@ -1,0 +1,95 @@
+{
+  "title": "Baton · Process Observability",
+  "uid": "baton",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["baton", "bpm", "agents"],
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "10s",
+  "templating": {
+    "list": [
+      {
+        "name": "lane",
+        "type": "query",
+        "datasource": { "type": "tempo", "uid": "Tempo" },
+        "query": "flue.operation",
+        "includeAll": true,
+        "multi": true,
+        "description": "Filter by swimlane (session) via span name"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Workflow runs",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "tempo", "uid": "Tempo" }, "queryType": "traceql", "query": "{ span.flue.workflow } | count()" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Failed runs",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "tempo", "uid": "Tempo" }, "queryType": "traceql", "query": "{ span.flue.workflow && status = error } | count()" }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } }
+    },
+    {
+      "type": "stat",
+      "title": "Model turns",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "tempo", "uid": "Tempo" }, "queryType": "traceql", "query": "{ span.chat } | count()" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Tool calls",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "tempo", "uid": "Tempo" }, "queryType": "traceql", "query": "{ span.flue.tool } | count()" }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Operations per swimlane (span name)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "description": "Each lane is a named Flue session; operation count by lane name.",
+      "targets": [
+        { "refId": "A", "datasource": { "type": "tempo", "uid": "Tempo" }, "queryType": "traceql", "query": "{ span.flue.operation } | group_by(name, count())" }
+      ],
+      "options": { "orientation": "horizontal" }
+    },
+    {
+      "type": "barchart",
+      "title": "Model-turn duration by lane (ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "description": "Latency hotspot detection — where is the process slow?",
+      "targets": [
+        { "refId": "A", "datasource": { "type": "tempo", "uid": "Tempo" }, "queryType": "traceql", "query": "{ span.chat } | group_by(resource.session, max(duration))" }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Slow / failing operations (top 50)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+      "description": "Error or >5s operations. The observability docs warn: a nested tool/model error that the agent recovers from is NOT an incident — review in context.",
+      "targets": [
+        { "refId": "A", "datasource": { "type": "tempo", "uid": "Tempo" }, "queryType": "traceql", "query": "{ span.flue.operation && (status = error || duration > 5s) } | select(name, status, duration)" }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Flue logs (gateway decisions, app events)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "description": "Includes ctx.log 'gateway decision' events carrying {lane, label, decision} — the yes/no branch rates.",
+      "targets": [
+        { "refId": "A", "datasource": { "type": "tempo", "uid": "Tempo" }, "queryType": "traceql", "query": "{ event.flue.log } | select(event.body)" }
+      ]
+    }
+  ]
+}

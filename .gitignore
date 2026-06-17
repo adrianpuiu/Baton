@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.flue/build/
+.venv/
+.env
+diagrams/*.png
+diagrams/*.bpmn
+diagrams/*.svg
+# ...but commit the two showcase diagrams (embedded in the README)
+!diagrams/onboarding.png
+!diagrams/onboarding.bpmn
+!diagrams/aiops-self-healing-structural.png
+# Generated Flue workflows are runnable (discovered flat in src/workflows/)
+# but curate them in git rather than committing every run.
+src/workflows/gen-*.ts
+# Locked ecosystem skills + manifests (reviewed, not auto-committed)
+skills.manifest.json
+skills.wiring.json
+skills-lock.json
+.agents/skills/
+*.log
+.DS_Store
+# Local telemetry sink (events + metrics cache)
+telemetry/
+# Employee audit trails produced by onboarding runs
+employees/

@@ -1,0 +1,103 @@
+import { spawn } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { parsePiperFlow } from '../compiler/parse.js';
+import { toDot } from './graphviz.js';
+
+const PYTHON = process.env.PYTHON ?? 'python3';
+// Resolve against process.cwd() (the project root when run via `flue run`).
+// We deliberately avoid `import.meta.url`: Flue's bundler rewrites it and the
+// relative path no longer points at the source tree.
+const RENDER_SCRIPT = process.env.RENDER_SCRIPT ?? join(process.cwd(), 'scripts', 'render.py');
+
+export interface RenderOptions {
+  /** Emit BPMN XML alongside the image (imports into Camunda/Signavio/Appian). */
+  bpmn?: boolean;
+  /** Output format is inferred from the extension: .png or .svg. */
+}
+
+export interface RenderResult {
+  image: string;
+  bpmn?: string;
+  fallback?: boolean;
+  fallbackReason?: string;
+}
+
+/**
+ * Render PiperFlow DSL to an image (PNG/SVG) via processpiper (Python).
+ * Optionally also emit BPMN XML.
+ *
+ * Graceful degradation: processpiper's grid-layout engine has known limits on
+ * large/wide interconnected processes (it throws `KeyError` from its internal
+ * grid). When that happens we fall back to a Graphviz structural rendering of
+ * the same AST — same nodes, lanes as clusters, gateways as diamonds — so the
+ * pipeline never dies on a valid process. The result carries `fallback: true`
+ * so callers can note the rendering mode. BPMN XML is still attempted; if the
+ * grid layout failed it will also be absent (BPMN export runs inside the same
+ * draw() call).
+ */
+export async function renderDiagram(
+  dsl: string,
+  outputPath: string,
+  opts: RenderOptions = {},
+): Promise<RenderResult> {
+  await mkdir(dirname(outputPath), { recursive: true });
+  const args = [RENDER_SCRIPT, outputPath, ...(opts.bpmn ? ['--bpmn'] : [])];
+
+  try {
+    const stdout = await runProcess(PYTHON, args, dsl);
+    const parsed = JSON.parse(stdout || '{"ok":true,"artifacts":[]}');
+    const artifacts: string[] = parsed.artifacts ?? [outputPath];
+    const image = artifacts.find((a) => /\.(png|svg)$/i.test(a)) ?? outputPath;
+    const bpmn = artifacts.find((a) => /\.bpmn$/i.test(a));
+    return bpmn ? { image, bpmn } : { image };
+  } catch (primaryErr) {
+    // Fallback: Graphviz structural rendering from the parsed AST.
+    const ast = parsePiperFlow(dsl);
+    const dot = toDot(ast);
+    const fallbackPath = outputPath.replace(/\.(png|svg)$/i, '') + '-structural.png';
+    try {
+      await renderWithGraphviz(dot, fallbackPath);
+      return {
+        image: fallbackPath,
+        fallback: true,
+        fallbackReason: summarise(primaryErr),
+      };
+    } catch {
+      // Graphviz not installed / also failed → propagate the original error.
+      throw primaryErr;
+    }
+  }
+}
+
+function runProcess(cmd: string, args: string[], stdin: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    let out = '';
+    let stderr = '';
+    proc.stdout.on('data', (d) => (out += d.toString()));
+    proc.stderr.on('data', (d) => (stderr += d.toString()));
+    proc.on('error', reject);
+    proc.on('close', (code) =>
+      code === 0 ? resolve(out) : reject(new Error(`render.py exited ${code}\n${stderr}`)),
+    );
+    proc.stdin.end(stdin);
+  });
+}
+
+function renderWithGraphviz(dot: string, outPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('dot', ['-Tpng', '-o', outPath], { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stderr = '';
+    proc.stderr.on('data', (d) => (stderr += d.toString()));
+    proc.on('error', reject);
+    proc.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr))));
+    proc.stdin.end(dot);
+  });
+}
+
+const summarise = (e: unknown): string => {
+  const msg = (e as Error).message ?? String(e);
+  const line = msg.split('\n').map((l) => l.trim()).filter(Boolean).pop();
+  return (line ?? msg).slice(0, 200);
+};
