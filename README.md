@@ -38,7 +38,7 @@ natural language
       ▼
  PiperFlow DSL ──► parse() ──► ProcessAST
                       ├──► renderDiagram()      → PNG / SVG (+ Graphviz fallback)
-                      ├──► renderDiagram(bpmn)  → BPMN 2.0 XML (Camunda / Signavio / Appian)
+                      ├──► renderDiagram(bpmn)  → BPMN 2.0 XML (Camunda / Signavio / etc..)
                       ├──► emitFlueWorkflow()   → src/workflows/gen-<name>.ts  (runnable)
                       └──► executeProcess()     → live trace (one agent per swimlane)
 ```
