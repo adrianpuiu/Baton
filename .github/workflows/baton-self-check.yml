@@ -1,0 +1,70 @@
+name: Baton self-check
+
+# Baton checks its OWN showcase artifacts with the built CLI — eating our dog
+# food. This is the CI guard that would have caught the round-trip regression
+# (where processpiper's lossy .bpmn made `baton check` give a false "sound").
+# It builds dist-cli from source (the published artifact) and asserts Baton's
+# verdicts on the showcase models are what we intend.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: baton-self-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  self-check:
+    name: baton check (own artifacts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - name: Build the CLI
+        run: npm run build:cli
+
+      # The RFP showcase is intentionally unsound-by-design: control-flow sound,
+      # reliability broken (stalled Go/No-Go). Check the committed .pf SOURCE
+      # (always fresh; no rendered artifact to go stale) and assert Baton finds
+      # exactly that. The .pf → .bpmn round-trip fidelity is separately locked by
+      # test/round-trip.test.ts in the unit suite — this step exercises the real
+      # built CLI binary on a real process.
+      - name: Assert the RFP showcase .pf is flagged stall-vulnerable
+        run: |
+          node dist-cli/cli.js check src/samples/rfp-response.pf --json > rfp.json || true
+          node -e '
+            const j = JSON.parse(require("fs").readFileSync("rfp.json","utf8"));
+            const assert = require("assert");
+            assert.strictEqual(j.sound, false, "RFP showcase must be unsound (stall)");
+            const stalls = (j.defects||[]).filter(d => d.kind === "stall-vulnerable");
+            assert.ok(stalls.length >= 1, "must find the stalled Go/No-Go approval");
+            const cf = (j.defects||[]).filter(d => d.kind !== "stall-vulnerable" && d.kind !== "orphan-escalation");
+            assert.strictEqual(cf.length, 0, "RFP control-flow must be clean — only reliability defects expected");
+            console.log("✓ RFP showcase: control-flow sound, reliability broken (stall found) — wedge holds");
+          '
+
+      # A known-sound fixture must pass cleanly (exit 0).
+      - name: Assert a sound process passes
+        run: |
+          mkdir -p /tmp/baton
+          cat > /tmp/baton/sound.bpmn <<'BPMN'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" targetNamespace="x">
+            <bpmn:process id="p" name="Sound" isExecutable="false">
+              <bpmn:startEvent id="s" name="Start"/>
+              <bpmn:serviceTask id="a" name="Automated step"/>
+              <bpmn:endEvent id="e" name="End"/>
+              <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="a"/>
+              <bpmn:sequenceFlow id="f2" sourceRef="a" targetRef="e"/>
+            </bpmn:process>
+          </bpmn:definitions>
+          BPMN
+          node dist-cli/cli.js check /tmp/baton/sound.bpmn
+          echo "✓ sound process passed (exit $?)"

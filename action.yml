@@ -1,0 +1,125 @@
+name: 'Baton BPMN Check'
+description: >-
+  Static soundness + reliability analysis for BPMN 2.0 processes — the
+  SonarQube for business processes. Finds deadlocks, dead branches, and stalled
+  approvals (human gates with no escalation timer) BEFORE deploy, and fails the
+  job if any are found. Works on any .bpmn export (Camunda / Signavio / Appian)
+  or PiperFlow .pf file. Local-first, offline, engine-agnostic.
+author: 'Adrian Puiu'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  paths:
+    description: >-
+      Newline- or space-separated list of process files to check (.bpmn or .pf).
+      Leave empty to check ALL .bpmn and .pf files in the repository
+      (node_modules and common build dirs excluded).
+    required: false
+    default: ''
+  fail-on-unsound:
+    description: >-
+      Fail the job (exit 1) if any process is unsound. Set to 'false' for
+      advisory-only annotations (e.g. while triaging a backlog of legacy models).
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Baton
+      shell: bash
+      run: npm install -g baton-bpmn
+
+    - name: Baton check
+      shell: bash
+      env:
+        INPUT_PATHS: ${{ inputs.paths }}
+        FAIL_ON_UNSOUND: ${{ inputs.fail-on-unsound }}
+      run: |
+        set -u
+        baton --version
+
+        # Gather the files to check.
+        files=()
+        if [[ -n "${INPUT_PATHS// }" ]]; then
+          # User-supplied paths (split on whitespace/newlines).
+          mapfile -t files < <(printf '%s' "$INPUT_PATHS" | tr '[:space:]' '\n' | grep -v '^$' || true)
+        else
+          # Default: every .bpmn and .pf in the repo, minus noise dirs.
+          mapfile -t files < <(
+            git ls-files -z '*.bpmn' '*.pf' 2>/dev/null \
+              | while IFS= read -r -d '' f; do
+                  case "$f" in
+                    node_modules/*|dist/*|dist-cli/*|.venv/*) ;;
+                    *) printf '%s\0' "$f" ;;
+                  esac
+                done
+          )
+        fi
+
+        if [[ ${#files[@]} -eq 0 ]]; then
+          echo "::notice::Baton found no .bpmn or .pf files to check."
+          exit 0
+        fi
+
+        echo "Baton: checking ${#files[@]} process file(s)."
+        echo
+
+        any_unsound=0
+        total_defects=0
+        {
+          echo "## 🎵 Baton — process analysis"
+          echo
+          echo "| File | Sound? | Control-flow | Reliability | Defects |"
+          echo "|------|--------|--------------|-------------|---------|"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        for f in "${files[@]}"; do
+          [[ -f "$f" ]] || { echo "::warning file=$f::Baton: file not found, skipped."; continue; }
+          json="$(baton check "$f" --json)" || true
+          sound="$(printf '%s' "$json" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).sound===true?"yes":"no")}catch{console.log("err")}})')"
+          defs="$(printf '%s' "$json" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log((j.defects||[]).length)}catch{console.log("?")}})')"
+          cf="$(printf '%s' "$json" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const d=JSON.parse(s).defects||[];console.log(d.filter(x=>x.kind!=="stall-vulnerable"&&x.kind!=="orphan-escalation").length)}catch{console.log("?")}})')"
+          rl="$(printf '%s' "$json" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const d=JSON.parse(s).defects||[];console.log(d.filter(x=>x.kind==="stall-vulnerable"||x.kind==="orphan-escalation").length)}catch{console.log("?")}})')"
+
+          icon="✅"; [[ "$sound" == "no" ]] && icon="❌"
+          echo "| \`$f\` | $icon $sound | $cf | $rl | $defs |" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$sound" == "no" ]]; then
+            any_unsound=1
+            # Emit one GitHub annotation per defect, naming the element id(s).
+            printf '%s' "$json" | node -e '
+              let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+                try{
+                  const j=JSON.parse(s);const file=j.file||"";
+                  for(const d of (j.defects||[])){
+                    const where=d.elementIds&&d.elementIds.length?(" ["+d.elementIds.join(", ")+"]"):"";
+                    const level = (d.kind==="stall-vulnerable"||d.kind==="orphan-escalation")?"warning":"error";
+                    console.log(`::${level} file=${file}::Baton — ${d.kind}${where} — ${d.message}`);
+                  }
+                }catch(e){console.log("::warning::Baton: could not parse output for "+file)}
+              });
+            '
+          else
+            echo "::notice file=$f::Baton: sound ✓ (${defs} defects)"
+          fi
+        done
+
+        echo
+        if [[ "$any_unsound" -eq 1 ]]; then
+          if [[ "${FAIL_ON_UNSOUND,,}" == "true" ]]; then
+            echo "❌ Baton found unsound processes. Failing the job (set fail-on-unsound: false to make advisory)."
+            exit 1
+          else
+            echo "⚠️  Baton found unsound processes (advisory mode — not failing)."
+          fi
+        else
+          echo "✅ All checked processes are sound."
+        fi
