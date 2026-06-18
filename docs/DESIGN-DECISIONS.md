@@ -188,3 +188,30 @@ surface in both the code and telemetry before shipping. (+) The smell detector
 is conservative (it warned on `Payment Failed?` but correctly stayed quiet on
 `Retry Failed?`). (-) A genuinely intended-but-unusual gateway could produce a
 false warning. Acceptable; it's a prompt to review, not a block.
+
+---
+
+## ADR-10 — Bounded execution (per-step timeout + degenerate-output detection)
+
+**Context.** The local model is a hybrid thinking model (Qwen3.6). Its reasoning
+can collapse into a degenerate repetition loop — the same sentence emitted
+hundreds of times (observed: a "Peer Review" step looped indefinitely). With no
+guard, one bad response hangs the whole pipeline until an external timeout kills
+it. That's unacceptable for anything production-shaped.
+
+**Decision.** Two guards, applied to every model call in both generation and
+execution:
+1. **Per-step timeout** via `AbortSignal.timeout(STEP_TIMEOUT_MS)` (default
+   120s/step for execution, 180s for generation). A stuck step aborts and is
+   recorded — activities get a `[step aborted: timed out]` note, gateways
+   default to `no` — instead of hanging forever.
+2. **Degenerate-output detection** — a 40-char window repeated 8+ times is
+   treated as a loop; the output is replaced with a termination marker and
+   logged as a warning.
+
+**Consequences.** ✅ A looping model can no longer hang the pipeline — every run
+terminates in bounded time. ✅ Partial results survive a stuck step (the trace
+shows where it failed). ✅ Both guards are observable (logged as warnings).
+⚠️ A legitimately long step could hit the timeout — mitigated by a generous
+default and `STEP_TIMEOUT_MS` override. ⚠️ The repetition heuristic could miss
+a slow-drift loop, but the timeout is the hard backstop regardless.

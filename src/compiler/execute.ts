@@ -18,9 +18,10 @@ export interface ExecutionResult {
 
 const Decision = v.object({ answer: v.picklist(['yes', 'no']) });
 
-/** Structured logger surface the executor emits gateway decisions through. */
+/** Structured logger surface the executor emits gateway decisions + warnings through. */
 export interface StepLogger {
   info: (message: string, attributes?: Record<string, unknown>) => void;
+  warn?: (message: string, attributes?: Record<string, unknown>) => void;
 }
 
 /** Minimal session surface executeProcess needs. */
@@ -45,7 +46,12 @@ export async function executeProcess(
   openSession: (name: string) => Promise<LaneSession>,
   model: string,
   log?: StepLogger,
+  opts?: { stepTimeoutMs?: number },
 ): Promise<ExecutionResult> {
+  // Bounded execution: each model call is capped so a degenerate thinking
+  // loop (a known failure mode of hybrid reasoning models) can't hang the
+  // whole pipeline. Default 120s/step; override via STEP_TIMEOUT_MS.
+  const stepTimeoutMs = opts?.stepTimeoutMs ?? Number(process.env.STEP_TIMEOUT_MS ?? 120_000);
   const byId = new Map(ast.elements.map((e) => [e.id, e] as const));
   const outFrom = (id: string) => ast.edges.filter((e) => e.from === id);
 
@@ -69,11 +75,26 @@ export async function executeProcess(
   ): Promise<{ text?: string; data?: unknown }> => {
     const session = await getSession(lane);
     const prev = laneChains.get(lane) ?? Promise.resolve();
-    const next = prev.then(() => session.prompt(text, opts));
+    // Per-step timeout: abort a stuck model call (degenerate thinking loop)
+    // instead of hanging forever. The signal is attached to this hop only.
+    const signal = AbortSignal.timeout(stepTimeoutMs);
+    const next = prev.then(() => session.prompt(text, { ...opts, signal }));
     // Drop the outcome from the chain so one rejected prompt can't poison (and
     // stall) the rest of the lane's queue.
     laneChains.set(lane, next.then(() => undefined, () => undefined));
     return next;
+  };
+
+  /** Detect a degenerate repetition loop in the model's text output. */
+  const looksDegenerate = (s: string | undefined): boolean => {
+    const t = (s ?? '').trim();
+    if (t.length < 80) return false;
+    // A 40-char window that appears 8+ times (non-overlapping) is almost
+    // certainly a repetition loop. Robust for both short-unit loops (a phrase)
+    // and long-unit loops (a whole reasoning block) that thinking models emit.
+    const window = t.slice(0, 40);
+    const hits = (t.match(new RegExp(window.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? []).length;
+    return hits >= 8;
   };
 
   const steps: ExecutionStep[] = [];
@@ -92,7 +113,17 @@ export async function executeProcess(
     const role = `Process "${ast.title}" — you are the "${el.lane}" swimlane. Be brief.`;
 
     if (el.category === 'activity') {
-      const { text } = await prompt(el.lane, `${role}\n\nPerform this step and report the outcome in one sentence:\n${el.label}`, { model });
+      let text: string | undefined;
+      try {
+        ({ text } = await prompt(el.lane, `${role}\n\nPerform this step and report the outcome in one sentence:\n${el.label}`, { model }));
+      } catch (e) {
+        text = `[step aborted: ${(e as Error).name === 'TimeoutError' ? `timed out after ${Math.round(stepTimeoutMs / 1000)}s` : (e as Error).message}]`;
+        log?.warn?.('step aborted', { lane: el.lane, label: el.label, error: (e as Error).message });
+      }
+      if (looksDegenerate(text)) {
+        text = `[degenerate model output detected — step terminated]`;
+        log?.warn?.('degenerate model output', { lane: el.lane, label: el.label });
+      }
       steps.push({ id: el.id, label: el.label, lane: el.lane, kind: el.variant, text: (text ?? '').slice(0, 200) });
       for (const e of outFrom(id)) await visit(e.to, visited);
       return;
@@ -103,12 +134,17 @@ export async function executeProcess(
 
     if (!isParallel(el) && el.variant !== 'inclusive') {
       // exclusive / event — binary decision
-      const { data } = await prompt(
-        el.lane,
-        `${role}\n\nDecision point: "${el.label}". Based on the process, answer yes or no.`,
-        { model, result: Decision },
-      );
-      const answer = (data as { answer: 'yes' | 'no' }).answer;
+      let answer: 'yes' | 'no' = 'no';
+      try {
+        const { data } = await prompt(
+          el.lane,
+          `${role}\n\nDecision point: "${el.label}". Based on the process, answer yes or no.`,
+          { model, result: Decision },
+        );
+        answer = (data as { answer: 'yes' | 'no' }).answer;
+      } catch (e) {
+        log?.warn?.('gateway decision aborted — defaulting to no', { lane: el.lane, label: el.label, error: (e as Error).message });
+      }
       steps.push({ id: el.id, label: el.label, lane: el.lane, kind: 'gateway', decision: answer });
       log?.info('gateway decision', { lane: el.lane, label: el.label, decision: answer });
       const yes = outs.find((e) => /^y/i.test(e.label ?? '')) ?? outs[0];

@@ -42,12 +42,14 @@ export async function run({ init, payload, env, log }: FlueContext<{ prompt?: st
   let bpmn: string | undefined;
   let lastError: string | undefined;
 
+  const genTimeoutMs = Number(process.env.STEP_TIMEOUT_MS ?? 180_000);
   for (let attempt = 1; attempt <= MAX_REPAIR_ATTEMPTS; attempt++) {
     const repair = lastError
       ? `\n\n# Your previous output was rejected. FIX the problem and regenerate the FULL corrected PiperFlow (no explanation).\nProblem: ${lastError.slice(0, 600)}`
       : '';
     const { text: raw } = await session.prompt(
       `${DSL_SPEC}${repair}\n\n# Task\nProduce ONE valid PiperFlow document for the process below. Output ONLY the PiperFlow text.\n\n## Process\n${prompt}`,
+      { signal: AbortSignal.timeout(genTimeoutMs) },
     );
     dsl = extractDsl(raw);
     try {
