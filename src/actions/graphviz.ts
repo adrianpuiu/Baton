@@ -31,7 +31,10 @@ export function toDot(ast: ProcessAST): string {
     if (ids.length) clusters.set(lane.name, ids);
   }
 
-  const esc = (s: string): string => s.replace(/"/g, '\\"');
+  // Escape backslashes FIRST, then quotes: DOT treats `\` as an escape char
+  // inside a quoted string, so a literal backslash (e.g. a Windows path in a
+  // label) must be doubled before the surrounding quotes are handled.
+  const esc = (s: string): string => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const lines: string[] = [
     'digraph process {',
     '  rankdir=LR;',

@@ -1,6 +1,6 @@
 import { defineTool, type ToolParameters } from '@flue/runtime';
-import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { spawnCapture } from '../../utils/spawn.js';
 
 const defaultRepo = () => process.env.SAMPLE_REPO ?? 'fixtures/sample-repo';
 const tail = (s: string, n = 4): string =>
@@ -18,15 +18,12 @@ export const buildTool = defineTool({
   async execute({ repo_path }) {
     const repo = repo_path || defaultRepo();
     if (!existsSync(repo)) return JSON.stringify({ built: false, summary: `repository not found at ${repo}` });
-    try {
-      const out = execSync('npm run build --silent', {
-        cwd: repo, timeout: 60_000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      return JSON.stringify({ built: true, artifact: 'dist/', summary: tail(out) });
-    } catch (e) {
-      const err = e as { stdout?: string; stderr?: string; message?: string };
-      const out = [err.stdout, err.stderr].filter(Boolean).join('\n');
-      return JSON.stringify({ built: false, summary: tail(out) || String(err.message) });
+    const r = await spawnCapture('npm', ['run', 'build', '--silent'], { cwd: repo, timeout: 60_000 });
+    if (r.timedOut) return JSON.stringify({ built: false, summary: 'build timed out after 60s' });
+    if (r.code !== 0) {
+      const out = [r.stdout, r.stderr].filter(Boolean).join('\n');
+      return JSON.stringify({ built: false, summary: tail(out) || `build failed (exit ${r.code})` });
     }
+    return JSON.stringify({ built: true, artifact: 'dist/', summary: tail(r.stdout) });
   },
 });

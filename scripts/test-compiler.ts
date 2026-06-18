@@ -1,6 +1,7 @@
 /**
  * Compiler smoke test on the rich sample — verifies parallel gateways compile
- * to Promise.all and the new element grammar parses cleanly. No model needed.
+ * to sequential branch emission (ADR-6: Flue sessions are single-operation) and
+ * the new element grammar parses cleanly. No model needed.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -20,6 +21,6 @@ console.log(`  categories: ${[...new Set(ast.elements.map((e) => e.category))].j
 console.log(`  gateway variants: ${ast.elements.filter((e) => e.category === 'gateway').map((e) => e.variant).join(', ')}`);
 console.log(`  activity variants: ${ast.elements.filter((e) => e.category === 'activity').map((e) => e.variant).join(', ')}`);
 console.log(`  event variants: ${ast.elements.filter((e) => e.category === 'event').map((e) => e.variant).join(', ')}`);
-console.log(`✓ Parallel gateway → Promise.all: ${/Promise\.all/.test(code)}`);
+console.log(`✓ Parallel gateway → sequential branches: ${/run sequentially/.test(code)}`);
 console.log(`✓ Subprocess noted: ${/subprocess/.test(code)}`);
 console.log(`✓ Message event emitted: ${/event: message/.test(code)}`);

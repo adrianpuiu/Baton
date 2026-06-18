@@ -34,7 +34,10 @@ export interface LaneSession {
  * Each swimlane is its own named Flue session (an independent conversation),
  * so a lane is genuinely a persistent actor with its own context.
  *   - exclusive/event gateway → ask for a yes/no decision, branch.
- *   - parallel/inclusive gateway → Promise.all over all outgoing branches.
+ *   - parallel/inclusive gateway → fan out over all branches; different lanes
+ *     run concurrently, but prompts within a single lane are SERIALIZED (Flue
+ *     sessions are single-operation, so same-lane prompts would otherwise throw
+ *     "session is busy" and race on shared per-lane state).
  * Every prompt is an observable event (→ OpenTelemetry span).
  */
 export async function executeProcess(
@@ -46,10 +49,31 @@ export async function executeProcess(
   const byId = new Map(ast.elements.map((e) => [e.id, e] as const));
   const outFrom = (id: string) => ast.edges.filter((e) => e.from === id);
 
-  const laneSessions = new Map<string, LaneSession>();
-  const getSession = async (lane: string): Promise<LaneSession> => {
-    if (!laneSessions.has(lane)) laneSessions.set(lane, await openSession(lane));
-    return laneSessions.get(lane)!;
+  // One real Flue session per lane. We cache the OPENING promise (not the
+  // resolved session) so concurrent first-callers on the same lane share one
+  // session instead of each opening their own.
+  const sessions = new Map<string, Promise<LaneSession>>();
+  const getSession = (lane: string): Promise<LaneSession> =>
+    sessions.get(lane) ?? sessions.set(lane, openSession(lane)).get(lane)!;
+
+  // Prompts on a lane are SERIALIZED via a per-lane promise chain. The chain is
+  // read and updated with no await in between, so concurrent prompts queue in
+  // call order; different lanes keep independent chains and still run in
+  // parallel. Matches the codegen emitter (ADR-6) and stops parallel-gateway
+  // branches from colliding on a shared lane session.
+  const laneChains = new Map<string, Promise<unknown>>();
+  const prompt = async (
+    lane: string,
+    text: string,
+    opts?: Record<string, unknown>,
+  ): Promise<{ text?: string; data?: unknown }> => {
+    const session = await getSession(lane);
+    const prev = laneChains.get(lane) ?? Promise.resolve();
+    const next = prev.then(() => session.prompt(text, opts));
+    // Drop the outcome from the chain so one rejected prompt can't poison (and
+    // stall) the rest of the lane's queue.
+    laneChains.set(lane, next.then(() => undefined, () => undefined));
+    return next;
   };
 
   const steps: ExecutionStep[] = [];
@@ -65,11 +89,10 @@ export async function executeProcess(
       return;
     }
 
-    const session = await getSession(el.lane);
     const role = `Process "${ast.title}" — you are the "${el.lane}" swimlane. Be brief.`;
 
     if (el.category === 'activity') {
-      const { text } = await session.prompt(`${role}\n\nPerform this step and report the outcome in one sentence:\n${el.label}`, { model });
+      const { text } = await prompt(el.lane, `${role}\n\nPerform this step and report the outcome in one sentence:\n${el.label}`, { model });
       steps.push({ id: el.id, label: el.label, lane: el.lane, kind: el.variant, text: (text ?? '').slice(0, 200) });
       for (const e of outFrom(id)) await visit(e.to, visited);
       return;
@@ -80,7 +103,8 @@ export async function executeProcess(
 
     if (!isParallel(el) && el.variant !== 'inclusive') {
       // exclusive / event — binary decision
-      const { data } = await session.prompt(
+      const { data } = await prompt(
+        el.lane,
         `${role}\n\nDecision point: "${el.label}". Based on the process, answer yes or no.`,
         { model, result: Decision },
       );

@@ -49,7 +49,29 @@ export async function createRecord(data: {
   return rec;
 }
 
-export async function appendEvent(
+// Per-employee write queue: serialize appendEvent calls for the same record so
+// concurrent callers (parallel-gateway branches, concurrent HTTP runs) can't
+// read-modify-write past each other and lose events. Different records run
+// independently.
+const writeLocks = new Map<string, Promise<unknown>>();
+function serialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = writeLocks.get(key) ?? Promise.resolve();
+  const next = prev.then(fn, fn); // run fn whether or not the prior write failed
+  writeLocks.set(key, next.then(() => undefined, () => undefined));
+  return next;
+}
+
+export function appendEvent(
+  id: string,
+  action: string,
+  lane: string,
+  details?: Record<string, unknown>,
+  patch?: Partial<EmployeeRecord>,
+): Promise<EmployeeRecord> {
+  return serialized(id, () => appendEventImpl(id, action, lane, details, patch));
+}
+
+async function appendEventImpl(
   id: string,
   action: string,
   lane: string,
