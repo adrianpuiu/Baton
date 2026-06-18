@@ -20,6 +20,10 @@ STRUCTURE
   pool: <name>              # opens a pool; lanes below belong to it
       lane: <name>
 
+DATA OBJECTS (optional — adds the BPMN data layer; makes the output Executable)
+  data: <name>              # untyped artifact
+  data: <name> : <Type>     # typed artifact (becomes a BPMN itemDefinition)
+
 ELEMENTS — each MUST end with "as <id>". Indent under its lane.
   Events (parentheses):
     (start) as <id>                                # start event
@@ -33,6 +37,8 @@ ELEMENTS — each MUST end with "as <id>". Indent under its lane.
   Activities (brackets):
     [<text>] as <id>                               # task (default)
     [@subprocess <text>] as <id>                   # subprocess
+    # Optional data I/O block — names refer to declared data objects above.
+    [Validate Order] as validate { in: order; out: validated_order }
   Gateways (angle brackets):
     <<text>?> as <id>                              # EXCLUSIVE (default) — one branch, Yes/No
     <@parallel <text>> as <id>                     # PARALLEL — ALL outgoing branches run

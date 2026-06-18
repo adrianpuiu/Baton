@@ -204,6 +204,14 @@ came directly from observing real runs (the observability layer earned its keep)
   lanes, every node type, sequence flows, a deterministic grid DI), with no
   dependency on any layout engine. It runs on the fallback path, so **a valid
   process never fails to produce BPMN either** — diagram *and* XML are guaranteed.
+- **The data layer (Executable conformance)** — PiperFlow can declare a data layer
+  (`data: order : Order`) and per-task I/O (`[Validate] as v { in: order; out: validated_order }`).
+  The emitter then produces full Executable-conformance BPMN: `itemDefinition`s,
+  `dataObject`s, per-activity `ioSpecification` (inputSet/outputSet), and
+  `dataInputAssociation`/`dataOutputAssociation` — and marks the process
+  `isExecutable="true"`. This is the line between a diagram that *runs* and one
+  that *executes* with real data flow, and it's the seed of a runtime evaluator
+  that self-assembles behaviour against process variables.
 - **Gateway-semantics detection** — if a generated exclusive gateway looks
   inverted (e.g. a recovery step on the "no" branch), the compiler emits a visible
   `⚠` comment **and** a runtime `log.warn`, so the defect surfaces in code and in

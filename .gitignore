@@ -3,6 +3,8 @@ dist/
 .flue/build/
 .venv/
 .env
+# Personal/local notes — never committed (job-search material).
+lessons.md
 diagrams/*.png
 diagrams/*.bpmn
 diagrams/*.svg

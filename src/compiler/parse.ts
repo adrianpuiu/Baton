@@ -2,6 +2,20 @@ import type { ProcessAST, ProcessElement } from './types.js';
 
 export class ParseError extends Error {}
 
+/** Parse an activity I/O block body like 'in: order; out: validated_order'. */
+function parseIoBlock(body: string): { inputs: string[]; outputs: string[] } {
+  const inputs: string[] = [];
+  const outputs: string[] = [];
+  for (const part of body.split(/[;,\n]/)) {
+    const m = part.match(/^\s*(in|out)\s*:\s*(.+?)\s*$/i);
+    if (!m) continue;
+    const refs = m[2].split(/\s+/).filter(Boolean);
+    if (m[1].toLowerCase() === 'in') inputs.push(...refs);
+    else outputs.push(...refs);
+  }
+  return { inputs, outputs };
+}
+
 const RE = {
   title: /^title:\s*(.+?)\s*$/i,
   width: /^width:\s*(\d+)\s*$/i,
@@ -9,11 +23,14 @@ const RE = {
   footer: /^footer:\s*(.+?)\s*$/i,
   pool: /^\s*pool:\s*(.+?)\s*$/i,
   lane: /^\s*lane:\s*(.+?)\s*$/i,
-  // Element shapes. group1 = optional @type marker, group2 = label, group3 = id.
+  // Data object: 'data: <name>' or 'data: <name> : <type>'. Type optional.
+  data: /^\s*data:\s*([A-Za-z_]\w*)\s*(?::\s*([A-Za-z_]\w*))?\s*$/i,
+  // Element shapes. group1 = optional @type marker, group2 = label, group3 = id,
+  // group4 = optional '{ in: ...; out: ... }' I/O block (activities only).
   // Markers only ever start with '@' (e.g. @timer, @subprocess, @parallel) —
   // a bare word like 'Place' in [Place Order] is part of the label, not a marker.
   event: /^\s*\(\s*(@\w+|start|end)?\s*(.*?)\)\s+as\s+([A-Za-z_]\w*)\s*$/,
-  activity: /^\s*\[\s*(@\w+)?\s*(.*?)\]\s+as\s+([A-Za-z_]\w*)\s*$/,
+  activity: /^\s*\[\s*(@\w+)?\s*(.*?)\]\s+as\s+([A-Za-z_]\w*)\s*(?:\{(.*?)\})?\s*$/,
   gateway: /^\s*<\s*(@\w+)?\s*(.*?)>\s+as\s+([A-Za-z_]\w*)\s*$/,
   // Connection line: one or more ids joined by ->, optionally with per-hop
   // side specs `-(bottom, top)` and a trailing `: label`.
@@ -43,7 +60,7 @@ const stripSides = (token: string): string => token.replace(/\s*-\s*\([^)]*\)\s*
  */
 export function parsePiperFlow(dsl: string): ProcessAST {
   const lines = dsl.replace(/\r\n/g, '\n').split('\n');
-  const ast: ProcessAST = { title: 'Untitled Process', lanes: [], elements: [], edges: [] };
+  const ast: ProcessAST = { title: 'Untitled Process', lanes: [], elements: [], edges: [], dataObjects: [] };
 
   let currentPool: string | undefined;
   let currentLane: string | undefined;
@@ -73,6 +90,14 @@ export function parsePiperFlow(dsl: string): ProcessAST {
     if ((m = line.match(RE.footer))) { ast.footer = m[1]; continue; }
     if ((m = line.match(RE.pool))) { currentPool = m[1]; currentLane = undefined; continue; }
     if ((m = line.match(RE.lane))) { declareLane(m[1]); continue; }
+    if ((m = line.match(RE.data))) {
+      // Data object: 'data: <name>' or 'data: <name> : <type>'. Type optional.
+      const name = m[1];
+      if (!ast.dataObjects.some((d) => d.id === name)) {
+        ast.dataObjects.push({ id: name, ...(m[2] ? { type: m[2] } : {}) });
+      }
+      continue;
+    }
 
     let shape: 'event' | 'activity' | 'gateway' | null = null;
     let marker = '';
@@ -104,6 +129,8 @@ export function parsePiperFlow(dsl: string): ProcessAST {
         category: shape === 'event' ? 'event' : shape === 'activity' ? 'activity' : 'gateway',
         variant,
         ...(currentPool ? { pool: currentPool } : {}),
+        // Activity I/O block '{ in: ...; out: ... }' → ioSpec (BPMN ioSpecification).
+        ...(shape === 'activity' && m[4]?.trim() ? { ioSpec: parseIoBlock(m[4]) } : {}),
       };
       ast.elements.push(el);
       continue;
@@ -135,6 +162,22 @@ function validate(ast: ProcessAST): void {
   const starts = ast.elements.filter((e) => e.category === 'event' && e.variant === 'start');
   if (starts.length === 0) throw new ParseError('Process has no (start) element.');
   if (starts.length > 1) throw new ParseError('Process has more than one (start) element.');
+
+  // Data I/O integrity: every activity in/out reference must resolve to a
+  // declared data object. Precise + actionable so the self-healing loop can
+  // feed the exact defect back to the model — same philosophy as orphan/edge
+  // checks above. This is what makes the emitted BPMN Executable-conformance.
+  const knownData = new Set(ast.dataObjects.map((d) => d.id));
+  for (const el of ast.elements) {
+    if (!el.ioSpec) continue;
+    for (const ref of [...el.ioSpec.inputs, ...el.ioSpec.outputs]) {
+      if (!knownData.has(ref)) {
+        throw new ParseError(
+          `Activity '${el.id}' references unknown data object '${ref}' in its { in/out } spec. Declare it first with: data: ${ref} : <Type>`,
+        );
+      }
+    }
+  }
 
   // Orphan detection: every element must participate in at least one connection.
   // Matches processpiper's own contract — catching it here gives a precise, actionable

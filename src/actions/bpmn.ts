@@ -154,9 +154,27 @@ export function emitBpmn(ast: ProcessAST, opts: EmitBpmnOptions = {}): string {
     (laneElements.get(el.lane) ?? laneElements.set(el.lane, []).get(el.lane)!).push(el);
   }
 
+  // ---- data layer: BPMN dataObjects + itemDefinitions + ioSpecification ----
+  // This is the Executable-conformance piece: typed artifacts flowing through
+  // the process, with each activity declaring what it consumes/produces. The
+  // associations link process-level dataObjects to per-activity dataInputs/outputs.
+  const dataObjId = (id: string) => `data_${slug(id)}`;
+  const itemDefId = (type: string) => `itemdef_${slug(type)}`;
+  // One itemDefinition per distinct type (untyped objects share 'Untyped').
+  const itemDefs = new Map<string, string>(); // type -> itemDef id
+  for (const d of ast.dataObjects) {
+    const t = d.type ?? 'Untyped';
+    if (!itemDefs.has(t)) itemDefs.set(t, itemDefId(t));
+  }
+  const dataInputId = (actId: string, obj: string) => `din_${slug(actId)}_${slug(obj)}`;
+  const dataOutputId = (actId: string, obj: string) => `dout_${slug(actId)}_${slug(obj)}`;
+
+  // A process is Executable-conformance iff it carries a data layer.
+  const executable = ast.dataObjects.length > 0;
+
   // ---- process: laneSet, nodes, sequence flows ----
   const proc: string[] = [
-    `  <bpmn:process id="process_${s}" name="${esc(ast.title)}" isExecutable="false">`,
+    `  <bpmn:process id="process_${s}" name="${esc(ast.title)}" isExecutable="${executable}">`,
     `    <bpmn:laneSet id="laneset_${s}">`,
   ];
   for (const laneName of laneOrder) {
@@ -177,6 +195,43 @@ export function emitBpmn(ast: ProcessAST, opts: EmitBpmnOptions = {}): string {
     for (const e of inc) proc.push(`      <bpmn:incoming>flow_${ast.edges.indexOf(e)}</bpmn:incoming>`);
     for (const e of out) proc.push(`      <bpmn:outgoing>flow_${ast.edges.indexOf(e)}</bpmn:outgoing>`);
     if (body) proc.push(body.trimEnd());
+    // Data I/O: ioSpecification + associations (only for activities with ioSpec).
+    if (el.ioSpec) {
+      const ins = el.ioSpec.inputs;
+      const outs = el.ioSpec.outputs;
+      proc.push(`      <bpmn:ioSpecification>`);
+      for (const obj of ins) {
+        const t = ast.dataObjects.find((d) => d.id === obj)?.type ?? 'Untyped';
+        proc.push(`        <bpmn:dataInput id="${dataInputId(el.id, obj)}" name="${esc(obj)}" itemSubjectRef="${itemDefs.get(t)}" />`);
+      }
+      for (const obj of outs) {
+        const t = ast.dataObjects.find((d) => d.id === obj)?.type ?? 'Untyped';
+        proc.push(`        <bpmn:dataOutput id="${dataOutputId(el.id, obj)}" name="${esc(obj)}" itemSubjectRef="${itemDefs.get(t)}" />`);
+      }
+      if (ins.length) {
+        proc.push(`        <bpmn:inputSet>`);
+        for (const obj of ins) proc.push(`          <bpmn:dataInputRefs>${dataInputId(el.id, obj)}</bpmn:dataInputRefs>`);
+        proc.push(`        </bpmn:inputSet>`);
+      }
+      if (outs.length) {
+        proc.push(`        <bpmn:outputSet>`);
+        for (const obj of outs) proc.push(`          <bpmn:dataOutputRefs>${dataOutputId(el.id, obj)}</bpmn:dataOutputRefs>`);
+        proc.push(`        </bpmn:outputSet>`);
+      }
+      proc.push(`      </bpmn:ioSpecification>`);
+      for (const obj of ins) {
+        proc.push(`      <bpmn:dataInputAssociation>`);
+        proc.push(`        <bpmn:sourceRef>${dataObjId(obj)}</bpmn:sourceRef>`);
+        proc.push(`        <bpmn:targetRef>${dataInputId(el.id, obj)}</bpmn:targetRef>`);
+        proc.push(`      </bpmn:dataInputAssociation>`);
+      }
+      for (const obj of outs) {
+        proc.push(`      <bpmn:dataOutputAssociation>`);
+        proc.push(`        <bpmn:sourceRef>${dataOutputId(el.id, obj)}</bpmn:sourceRef>`);
+        proc.push(`        <bpmn:targetRef>${dataObjId(obj)}</bpmn:targetRef>`);
+        proc.push(`      </bpmn:dataOutputAssociation>`);
+      }
+    }
     proc.push(`    </bpmn:${tag}>`);
   }
 
@@ -186,7 +241,21 @@ export function emitBpmn(ast: ProcessAST, opts: EmitBpmnOptions = {}): string {
       `    <bpmn:sequenceFlow id="${flowId(e, i)}"${name} sourceRef="${nodeId(e.from)}" targetRef="${nodeId(e.to)}" />`,
     );
   });
+  // Process-level data objects (declared artifacts). itemSubjectRef points at
+  // the shared itemDefinition for the object's type.
+  for (const d of ast.dataObjects) {
+    const t = d.type ?? 'Untyped';
+    proc.push(
+      `    <bpmn:dataObject id="${dataObjId(d.id)}" name="${esc(d.id)}" itemSubjectRef="${itemDefs.get(t)}" />`,
+    );
+  }
   proc.push(`  </bpmn:process>`);
+
+  // ---- itemDefinitions: one per distinct type, at the definitions level ----
+  const itemDefBlock = [...itemDefs.entries()].map(
+    ([type, id]) =>
+      `  <bpmn:itemDefinition id="${id}" structureRef="${esc(type)}" itemKind="Information" />`,
+  );
 
   // ---- collaboration: one participant per pool ----
   const collab = [
@@ -256,6 +325,16 @@ export function emitBpmn(ast: ProcessAST, opts: EmitBpmnOptions = {}): string {
       `      </bpmndi:BPMNShape>`,
     );
   }
+  // Data objects — placed in a row below the lanes so they're locatable.
+  const dataY = PAD_Y + laneOrder.length * LANE_H + 20;
+  ast.dataObjects.forEach((d, i) => {
+    const dx = PAD_X + i * 100;
+    di.push(
+      `      <bpmndi:BPMNShape id="shape_${dataObjId(d.id)}" bpmnElement="${dataObjId(d.id)}">`,
+      `        <dc:Bounds x="${dx}" y="${dataY}" width="48" height="64" />`,
+      `      </bpmndi:BPMNShape>`,
+    );
+  });
   // Edges — straight-line waypoints; importers re-route orthogonally.
   ast.edges.forEach((e, i) => {
     const from = byId.get(e.from);
@@ -280,6 +359,7 @@ export function emitBpmn(ast: ProcessAST, opts: EmitBpmnOptions = {}): string {
     targetNamespace="http://baton/processes"
     exporter="Baton" exporterVersion="1.0">
 ${proc.join('\n')}
+${itemDefBlock.join('\n')}
 ${collab.join('\n')}
 ${di.join('\n')}
 </bpmn:definitions>
