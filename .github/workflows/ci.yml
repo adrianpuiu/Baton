@@ -20,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # The render test degrades to the Graphviz structural fallback when
@@ -29,7 +29,12 @@ jobs:
       - name: Install Graphviz (render fallback backend)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends graphviz
 
-      - run: npm ci
+      - run: npm install
+        # npm install (not ci): the lock was generated on aarch64 and the
+        # Flue -> Cloudflare-worker platform optional deps (workerd/emnapi)
+        # don't reconcile on x64 under a strict clean install. install
+        # reconciles them per-platform; we don't need the worker runtime for
+        # typecheck/test anyway.
 
       - name: Typecheck
         run: npm run typecheck
