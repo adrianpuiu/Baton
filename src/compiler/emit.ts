@@ -23,6 +23,25 @@ export interface EmitOptions {
 export const laneKey = (lane: string): string =>
   lane.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
 
+/**
+ * BPMN Task sub-type → generated-code hint + executor pattern.
+ *
+ * The task type is declarative; the compiler maps it to the right executor shape.
+ * All except 'manual' still delegate to the lane sub-agent (Flue's primitive),
+ * but carry a comment that makes the BPMN semantics visible in the generated
+ * workflow. 'manual' is genuinely non-automated in BPMN — a human performs it
+ * outside the system — so it emits no session.task at all (a no-op comment).
+ */
+const TASK_CODEGEN: Record<string, string> = {
+  service: 'service task — invoke a deterministic tool',
+  user: 'user task — human-in-the-loop (await human input)',
+  businessRule: 'business-rule task — evaluate a rule/decision',
+  send: 'send task — emit a message to an external participant',
+  receive: 'receive task — await an inbound message',
+  script: 'script task — deterministic inline code',
+  manual: 'manual task — performed by a human outside the system (no automation)',
+};
+
 const roleInstructions = (lane: string, pool?: string): string =>
   `You are the "${lane}" swimlane${pool ? ` (pool: ${pool})` : ''}. Perform assigned steps accurately. If you have tools available, USE THEM to do the work concretely instead of guessing. Respond concisely with the result.`;
 
@@ -144,8 +163,21 @@ function renderNode(
   }
 
   if (el.category === 'activity') {
-    const note = el.variant === 'subprocess' ? ' // subprocess' : '';
-    let s = `${pad(indent)}await session.task(${JSON.stringify(el.label)}, { agent: ${JSON.stringify(laneKey(el.lane))} });${note}\n`;
+    if (el.variant === 'subprocess') {
+      let s = `${pad(indent)}await session.task(${JSON.stringify(el.label)}, { agent: ${JSON.stringify(laneKey(el.lane))} }); // subprocess\n`;
+      for (const e of outFrom(id)) s += renderNode(e.to, byId, outFrom, visited, indent);
+      return s;
+    }
+    const tt = el.taskType;
+    // Manual tasks are explicitly non-automated in BPMN: a human performs them
+    // outside the system, so they emit no session.task — just a visible marker.
+    if (tt === 'manual') {
+      let s = `${pad(indent)}// ${TASK_CODEGEN.manual}: ${JSON.stringify(el.label)} (lane: ${laneKey(el.lane)})\n`;
+      for (const e of outFrom(id)) s += renderNode(e.to, byId, outFrom, visited, indent);
+      return s;
+    }
+    const hint = tt ? ` // ${TASK_CODEGEN[tt]}` : '';
+    let s = `${pad(indent)}await session.task(${JSON.stringify(el.label)}, { agent: ${JSON.stringify(laneKey(el.lane))} });${hint}\n`;
     for (const e of outFrom(id)) s += renderNode(e.to, byId, outFrom, visited, indent);
     return s;
   }

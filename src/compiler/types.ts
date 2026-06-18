@@ -25,6 +25,15 @@ export type EventVariant =
 export type ActivityVariant = 'task' | 'subprocess';
 export type GatewayVariant = 'exclusive' | 'parallel' | 'inclusive' | 'event';
 
+/**
+ * BPMN Task sub-types ( OMG metamodel: Task has these implementations).
+ * 'none' = a plain <task> with no specific implementation declared.
+ * Only meaningful when an activity's variant is 'task' (subprocess has none).
+ */
+export type TaskType =
+  | 'none' | 'service' | 'user' | 'businessRule'
+  | 'send' | 'receive' | 'manual' | 'script';
+
 export interface ProcessElement {
   id: string;
   label: string;
@@ -32,6 +41,13 @@ export interface ProcessElement {
   pool?: string;
   category: ElementCategory;
   variant: EventVariant | ActivityVariant | GatewayVariant;
+  /**
+   * BPMN Task sub-type (service/user/businessRule/send/receive/manual/script).
+   * Declarative "how": what kind of work this step is. The renderer maps it to
+   * the correct BPMN tag; the compiler maps it to the right executor pattern
+   * (service→tool, user→HITL, manual→no-op, ...). Only set when variant==='task'.
+   */
+  taskType?: TaskType;
   /**
    * Data I/O spec — only meaningful on activities (BPMN ioSpecification).
    * The declarative "what": what data this task consumes and produces. Inputs/

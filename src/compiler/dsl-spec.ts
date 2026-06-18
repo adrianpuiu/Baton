@@ -35,10 +35,18 @@ ELEMENTS — each MUST end with "as <id>". Indent under its lane.
     (@conditional <text>) as <id>                  # conditional event
     (@link <text>) as <id>                         # link event
   Activities (brackets):
-    [<text>] as <id>                               # task (default)
+    [<text>] as <id>                               # task (default — plain BPMN task)
     [@subprocess <text>] as <id>                   # subprocess
     # Optional data I/O block — names refer to declared data objects above.
     [Validate Order] as validate { in: order; out: validated_order }
+    # Task IMPLEMENTATION markers (BPMN Task sub-types):
+    [@service <text>] as <id>       # service task — calls an automated service/tool
+    [@user <text>] as <id>          # user task — needs human input (human-in-the-loop)
+    [@business-rule <text>] as <id> # business-rule task — evaluates a rule/decision (DMN)
+    [@send <text>] as <id>          # send task — emits a message to a participant
+    [@receive <text>] as <id>       # receive task — waits for an inbound message
+    [@script <text>] as <id>        # script task — deterministic inline code
+    [@manual <text>] as <id>        # manual task — a human does it, no automation
   Gateways (angle brackets):
     <<text>?> as <id>                              # EXCLUSIVE (default) — one branch, Yes/No
     <@parallel <text>> as <id>                     # PARALLEL — ALL outgoing branches run

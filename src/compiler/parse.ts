@@ -27,11 +27,12 @@ const RE = {
   data: /^\s*data:\s*([A-Za-z_]\w*)\s*(?::\s*([A-Za-z_]\w*))?\s*$/i,
   // Element shapes. group1 = optional @type marker, group2 = label, group3 = id,
   // group4 = optional '{ in: ...; out: ... }' I/O block (activities only).
-  // Markers only ever start with '@' (e.g. @timer, @subprocess, @parallel) —
-  // a bare word like 'Place' in [Place Order] is part of the label, not a marker.
-  event: /^\s*\(\s*(@\w+|start|end)?\s*(.*?)\)\s+as\s+([A-Za-z_]\w*)\s*$/,
-  activity: /^\s*\[\s*(@\w+)?\s*(.*?)\]\s+as\s+([A-Za-z_]\w*)\s*(?:\{(.*?)\})?\s*$/,
-  gateway: /^\s*<\s*(@\w+)?\s*(.*?)>\s+as\s+([A-Za-z_]\w*)\s*$/,
+  // Markers only ever start with '@' (e.g. @timer, @subprocess, @parallel,
+  // @business-rule) — a bare word like 'Place' in [Place Order] is part of the
+  // label, not a marker. Markers may contain hyphens (task sub-type names).
+  event: /^\s*\(\s*(@[\w-]+|start|end)?\s*(.*?)\)\s+as\s+([A-Za-z_]\w*)\s*$/,
+  activity: /^\s*\[\s*(@[\w-]+)?\s*(.*?)\]\s+as\s+([A-Za-z_]\w*)\s*(?:\{(.*?)\})?\s*$/,
+  gateway: /^\s*<\s*(@[\w-]+)?\s*(.*?)>\s+as\s+([A-Za-z_]\w*)\s*$/,
   // Connection line: one or more ids joined by ->, optionally with per-hop
   // side specs `-(bottom, top)` and a trailing `: label`.
   edge: /^([A-Za-z_]\w*(?:\s*(?:-\s*\([^)]*\)\s*)?->\s*[A-Za-z_]\w*)+)\s*(?::\s*(.*?))?\s*$/,
@@ -47,6 +48,22 @@ const EVENT_VARIANTS: Record<string, ProcessElement['variant']> = {
 const ACTIVITY_VARIANTS: Record<string, ProcessElement['variant']> = {
   '': 'task', '@subprocess': 'subprocess',
 };
+/**
+ * BPMN Task sub-type markers → TaskType. All map to variant 'task' (the OMG
+ * model: Task has these implementations as sub-types); the variant stays 'task'
+ * and the specific kind rides on ProcessElement.taskType. '@subprocess' is a
+ * separate axis (Activity type, not Task sub-type) so it lives in ACTIVITY_VARIANTS.
+ */
+const TASK_TYPE_MARKERS: Record<string, import('./types.js').TaskType> = {
+  '@service': 'service',
+  '@user': 'user',
+  '@business-rule': 'businessRule',
+  '@rule': 'businessRule',
+  '@send': 'send',
+  '@receive': 'receive',
+  '@manual': 'manual',
+  '@script': 'script',
+};;
 const GATEWAY_VARIANTS: Record<string, ProcessElement['variant']> = {
   '': 'exclusive', '@parallel': 'parallel', '@inclusive': 'inclusive', '@event': 'event',
 };
@@ -112,8 +129,17 @@ export function parsePiperFlow(dsl: string): ProcessAST {
       label = m[2];
       id = m[3];
       const variantMap = shape === 'event' ? EVENT_VARIANTS : shape === 'activity' ? ACTIVITY_VARIANTS : GATEWAY_VARIANTS;
-      const variant = variantMap[marker ?? ''];
-      if (!variant) throw new ParseError(`Unknown ${shape} marker '${marker || '(none)'}' for element '${id}'. Expected one of: ${Object.keys(variantMap).map((k) => k || 'default').join(', ')}`);
+      // Activities: a task sub-type marker (@service, @user, ...) sets
+      // variant='task' + taskType rather than going through ACTIVITY_VARIANTS.
+      let variant: ProcessElement['variant'] | undefined;
+      let taskType: import('./types.js').TaskType | undefined;
+      if (shape === 'activity' && marker && marker in TASK_TYPE_MARKERS) {
+        variant = 'task';
+        taskType = TASK_TYPE_MARKERS[marker];
+      } else {
+        variant = variantMap[marker ?? ''];
+      }
+      if (!variant) throw new ParseError(`Unknown ${shape} marker '${marker || '(none)'}' for element '${id}'. Expected one of: ${[...Object.keys(variantMap), ...(shape === 'activity' ? Object.keys(TASK_TYPE_MARKERS) : [])].map((k) => k || 'default').join(', ')}`);
       if (!currentLane) throw new ParseError(`Element '${id}' declared before any lane.`);
 
       // Events have no free label for start/end; synthesise a display label.
@@ -131,6 +157,8 @@ export function parsePiperFlow(dsl: string): ProcessAST {
         ...(currentPool ? { pool: currentPool } : {}),
         // Activity I/O block '{ in: ...; out: ... }' → ioSpec (BPMN ioSpecification).
         ...(shape === 'activity' && m[4]?.trim() ? { ioSpec: parseIoBlock(m[4]) } : {}),
+        // Task sub-type (@service, @user, ...) → BPMN task implementation tag.
+        ...(taskType ? { taskType } : {}),
       };
       ast.elements.push(el);
       continue;

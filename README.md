@@ -212,6 +212,14 @@ came directly from observing real runs (the observability layer earned its keep)
   `isExecutable="true"`. This is the line between a diagram that *runs* and one
   that *executes* with real data flow, and it's the seed of a runtime evaluator
   that self-assembles behaviour against process variables.
+- **Typed tasks (the BPMN capability taxonomy)** — BPMN doesn't have one "task";
+  it has Service, User, Business-rule, Send, Receive, Manual, and Script tasks.
+  PiperFlow markers (`[@service ...]`, `[@user ...]`, `[@manual ...]`, ...) map
+  each to its correct BPMN tag *and* to the right executor pattern in the
+  generated workflow (service→tool call, user→human-in-the-loop, manual→a
+  genuine no-op since a human performs it offline). The task type is declarative;
+  the compiler picks the concrete executor — the same shape as the lane-level
+  capability registry, one level down.
 - **Gateway-semantics detection** — if a generated exclusive gateway looks
   inverted (e.g. a recovery step on the "no" branch), the compiler emits a visible
   `⚠` comment **and** a runtime `log.warn`, so the defect surfaces in code and in

@@ -57,8 +57,21 @@ function nodeShape(el: ProcessElement): { tag: string; w: number; h: number; bod
       return { tag: 'intermediateCatchEvent', w: 36, h: 36 };
     case 'subprocess':
       return { tag: 'subProcess', w: 110, h: 90 };
-    case 'task':
-      return { tag: 'task', w: 110, h: 80 };
+    case 'task': {
+      // BPMN Task sub-types map to their own tags. 'none' (or unset) = plain task.
+      const TASK_TAG: Record<string, string> = {
+        none: 'task',
+        service: 'serviceTask',
+        user: 'userTask',
+        businessRule: 'businessRuleTask',
+        send: 'sendTask',
+        receive: 'receiveTask',
+        manual: 'manualTask',
+        script: 'scriptTask',
+      };
+      const tt = (el.taskType ?? 'none') as string;
+      return { tag: TASK_TAG[tt] ?? 'task', w: 110, h: 80 };
+    }
     case 'exclusive':
       return { tag: 'exclusiveGateway', w: 50, h: 50 };
     case 'parallel':
