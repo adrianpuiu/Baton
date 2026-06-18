@@ -10,6 +10,7 @@
     "test:render": "node --import tsx --test test/render.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "check:soundness": "tsx scripts/check-soundness.ts",
     "resolve:skills": "tsx scripts/test-resolver.ts",
     "lock:skills": "tsx scripts/lock-skills.ts",
     "generate:skills": "tsx scripts/generate-skills.ts",

@@ -11,6 +11,7 @@ pool: Retailer
     lane: Sales
         [Validate Order] as validate_order
         <@parallel Split Fulfilment> as split
+        <@parallel Join Fulfilment> as fulfilment_join
         [@subprocess Finalise Order] as finalise
     lane: Warehouse
         [Pick Items] as pick_items
@@ -24,8 +25,9 @@ validate_order->split: Validated
 split->pick_items: Branch A
 split->assign_carrier: Branch B
 pick_items->pack: Picked
-pack->finalise: Packed
-assign_carrier->finalise: Carrier Set
+pack->fulfilment_join
+assign_carrier->fulfilment_join
+fulfilment_join->finalise: Joined
 finalise->payment_received: Done
 payment_received->end
 

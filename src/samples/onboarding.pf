@@ -8,6 +8,7 @@ pool: People Ops
         [Initiate Background Check] as background_check
         <Background Check Passed?> as bg_passed
         <@parallel Provision On Day One> as day_one
+        <@parallel Join Day One> as day_one_join
         [Finalize Paperwork] as finalize
         [Revoke Access] as revoke_access
         (end) as end
@@ -29,9 +30,10 @@ day_one->building_access: Facilities
 building_access->desk_setup
 day_one->schedule_orientation: Manager
 schedule_orientation->assign_buddy
-create_accounts->finalize
-desk_setup->finalize
-assign_buddy->finalize
+create_accounts->day_one_join
+desk_setup->day_one_join
+assign_buddy->day_one_join
+day_one_join->finalize
 finalize->end
 bg_passed->revoke_access: No
 revoke_access->end

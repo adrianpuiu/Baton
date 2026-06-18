@@ -220,6 +220,21 @@ came directly from observing real runs (the observability layer earned its keep)
   genuine no-op since a human performs it offline). The task type is declarative;
   the compiler picks the concrete executor — the same shape as the lane-level
   capability registry, one level down.
+- **Formal soundness analysis (Petri-net / workflow-net)** — BPMN's execution
+  semantics are formally defined as a mapping to Petri nets (van der Aalst's
+  workflow nets). Baton translates the AST to a net and *proves* things about
+  the control flow that a syntax check can't see and a human reviewer often
+  misses: the classic parallel-join imbalance (a split fans out to N branches
+  but fewer rejoin → the join waits forever), dead branches, improper completion.
+  ```bash
+  npm run check:soundness -- src/samples/onboarding.pf
+  ```
+  Reports each defect with the offending element named. This is the part of
+  "full BPMN" that almost no commercial tool productizes — Camunda checks
+  syntax and reference validity; soundness analysis lives in academic tools
+  nobody integrates. It's control-flow only (the data layer isn't modeled —
+  that needs colored Petri nets), honest about its approximations, and bounded
+  so it can't hang. Run `npm run check:soundness` on any `.pf` file.
 - **Gateway-semantics detection** — if a generated exclusive gateway looks
   inverted (e.g. a recovery step on the "no" branch), the compiler emits a visible
   `⚠` comment **and** a runtime `log.warn`, so the defect surfaces in code and in
@@ -371,6 +386,7 @@ The compiler and renderer are covered by real assertions (`node:test`) and run o
 ```bash
 npm run typecheck   # tsc --noEmit
 npm run lint        # eslint + typescript-eslint (recommended)
+npm run check:soundness -- src/samples/onboarding.pf   # formal soundness report
 npm test            # node:test — parser, emitter, parse-error contract, rendering
 ```
 
