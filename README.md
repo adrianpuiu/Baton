@@ -114,6 +114,33 @@ diagrams are committed: [`diagrams/onboarding.png`](diagrams/onboarding.png)
 (the process you just ran) and
 [`diagrams/aiops-self-healing-structural.png`](diagrams/aiops-self-healing-structural.png).
 
+### Or run it in a container (zero local setup)
+
+Prefer not to install Node + Python + Graphviz locally? The image bundles all
+three toolchains, so the *full* path — including diagram rendering and the
+Graphviz fallback — runs anywhere Docker does:
+
+```bash
+docker build -t baton .
+docker run --rm baton              # the onboarding demo (default CMD)
+```
+
+To drive the model-in-the-loop path against a vLLM server on your host, point
+the container at it and run the design workflow:
+
+```bash
+docker run --rm \
+  -e VLLM_BASE_URL=http://host.docker.internal:8000/v1 \
+  baton npm run run:design -- --payload '{"prompt":"..."}'
+```
+
+`Dockerfile` follows the usual layer-hygiene: deps are copied before source so
+`npm install` is cached across builds; it runs as the non-root `node` user; and
+the Python renderer lives in an isolated venv (`/opt/venv`, exposed via `$PYTHON`)
+so it never pollutes the Debian system site-packages. The bulk of the image is
+Flue's Cloudflare `workerd` runtime (pulled transitively); Node + Python +
+Graphviz together are a small fraction.
+
 ### Full AI path — generate processes from plain English (optional)
 
 The happy path above is deterministic. To have Baton **write** a process from a
