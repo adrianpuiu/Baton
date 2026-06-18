@@ -65,45 +65,80 @@ The onboarding run leaves a real artifact — `employees/EMP-*.json` — a times
 
 ## Quick start
 
-### 1. Python side (renders the diagram + BPMN)
+### 60-second happy path — no model, no GPU, no Docker
+
+Clone, install, and watch a four-lane onboarding process execute end-to-end.
+This is the deterministic half of Baton (everything except the LLM): it drives
+the real per-lane provisioning tools, fans out across HR → IT → Facilities →
+Manager, and leaves a genuine `employees/EMP-*.json` audit trail behind —
+exactly what an HRIS produces.
 
 ```bash
-cd Baton
-python3 -m venv .venv && . .venv/bin/activate
-pip install processpiper
-```
-
-### 2. Node side
-
-```bash
+git clone https://github.com/adrianpuiu/Baton && cd Baton
 npm install
-cp .env.example .env        # defaults point at http://localhost:8000/v1
+npm run onboard:demo
 ```
 
-> **aarch64/Linux note:** Flue's CLI pulls in Cloudflare's `workerd`, and its
-> `linux-arm64` binary doesn't always auto-install. If `npx flue` errors on
-> workerd, run `npm install --no-save @cloudflare/workerd-linux-arm64`.
+```text
+HR: created EMP-MQJDGRR6
+HR: background check passed
+— day-one provisioning fan-out —
+IT: laptop + accounts provisioned
+Facilities: badge + desk assigned
+Manager: orientation + buddy assigned
+HR: paperwork finalized → employee active
 
-### 3. Verify the non-LLM half (no model needed)
+=== audit trail: EMP-MQJDGRR6 (Jane Smith) — status: active ===
+  2026-06-18T10:43:45.666Z  record_created         [HR]
+  2026-06-18T10:43:45.672Z  background_check       [HR]
+  2026-06-18T10:43:45.673Z  laptop_provisioned     [IT]
+  2026-06-18T10:43:45.674Z  accounts_created       [IT]
+  2026-06-18T10:43:45.674Z  badge_issued           [Facilities]
+  2026-06-18T10:43:45.674Z  desk_assigned          [Facilities]
+  2026-06-18T10:43:45.675Z  orientation_scheduled  [Manager]
+  2026-06-18T10:43:45.675Z  buddy_assigned         [Manager]
+  2026-06-18T10:43:45.675Z  paperwork_finalized    [HR]
+```
+
+The audit trail lands in `employees/EMP-*.json` — open it and you'll see every
+provisioning action timestamped and attributed to its lane.
+
+Want to see the contract holds? The suite that mirrors CI runs with no infra:
 
 ```bash
-npm run test:compiler       # parse + compile a sample DSL → a Flue workflow + diagram
-npm run test:render         # parse a sample DSL → PNG + BPMN XML
+npm test            # node:test — parser, emitter, parse-error contract, rendering
 ```
 
-### 4. Generate a process from plain English (needs vLLM on :8000)
+You don't even need to render anything to see the BPMN output — the showcase
+diagrams are committed: [`diagrams/onboarding.png`](diagrams/onboarding.png)
+(the process you just ran) and
+[`diagrams/aiops-self-healing-structural.png`](diagrams/aiops-self-healing-structural.png).
+
+### Full AI path — generate processes from plain English (optional)
+
+The happy path above is deterministic. To have Baton **write** a process from a
+plain-English description — producing the PiperFlow DSL, a diagram, BPMN XML, a
+compiled Flue workflow, and a live execution trace — point it at a self-hosted
+model. That needs two extra things:
+
+**1. A renderer for fresh diagrams** (only needed to draw *new* diagrams — the
+committed ones above need nothing):
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate
+pip install processpiper          # + graphviz on PATH for the structural fallback
+cp .env.example .env
+```
+
+**2. A local model on `http://localhost:8000/v1`** (OpenAI-compatible; e.g.
+vLLM). Then:
 
 ```bash
 npm run run:design -- --payload '{"prompt":"A team merges a PR; CI runs tests, then builds. If tests fail the devs are notified. After building, in parallel security scans it and ops deploys to staging; finally a release is published."}'
 ```
 
-You get back: the PiperFlow DSL, a PNG diagram, a BPMN XML file, a compiled Flue
-workflow module, and a live execution trace.
-
-### 5. Run a generated workflow
-
 Every `design-process` run also writes a **runnable** Flue workflow flat into
-`src/workflows/gen-<slug>.ts` (Flue discovers only flat files there). Run it:
+`src/workflows/gen-<slug>.ts`. Run it:
 
 ```bash
 npx flue run gen-<slug> --target node
@@ -111,7 +146,12 @@ npx flue run gen-<slug> --target node
 
 It's idiomatic Flue: each swimlane is a `defineAgentProfile` sub-agent on a
 coordinator; steps delegate via `session.task(label, { agent })`; exclusive
-gateways branch on a `yes/no` result; parallel gateways fan out with `Promise.all`.
+gateways branch on a `yes/no` result; parallel gateways fan out (emitted
+sequentially — Flue sessions are single-operation; see the design notes).
+
+> **aarch64/Linux note:** Flue's CLI pulls in Cloudflare's `workerd`, whose
+> `linux-arm64` binary doesn't always auto-install. If `npx flue` errors on
+> workerd, run `npm install --no-save @cloudflare/workerd-linux-arm64`.
 
 ---
 
