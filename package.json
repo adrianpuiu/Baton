@@ -1,9 +1,38 @@
 {
   "name": "baton-bpmn",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
-  "description": "Turn a business-process description into a BPMN diagram AND a live Flue agent workflow. One PiperFlow DSL, two consumers: a picture and an executable.",
+  "description": "Static reliability analysis for BPMN 2.0 processes — the SonarQube for business processes. Detects deadlocks, dead branches, and stalled approvals BEFORE you deploy. Local-first, CI-friendly, engine-agnostic.",
+  "keywords": [
+    "bpmn",
+    "bpmn2",
+    "soundness",
+    "static-analysis",
+    "workflow",
+    "process-mining",
+    "camunda",
+    "linter",
+    "ci",
+    "reliability",
+    "petri-net",
+    "business-process",
+    "escalation",
+    "stall"
+  ],
+  "license": "MIT",
+  "author": "Adrian Puiu <adrianpuiu@gmail.com>",
+  "homepage": "https://github.com/adrianpuiu/Baton#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adrianpuiu/Baton.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adrianpuiu/Baton/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "test": "node --import tsx --test test/*.test.ts",
     "test:compiler": "node --import tsx --test test/compiler.test.ts test/parse-errors.test.ts",
@@ -36,12 +65,12 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@flue/runtime": "latest",
-    "fast-xml-parser": "^5.9.2",
-    "hono": "^4.6.0",
-    "valibot": "^1.0.0"
+    "fast-xml-parser": "^5.9.2"
   },
   "devDependencies": {
+    "@flue/runtime": "latest",
+    "hono": "^4.6.0",
+    "valibot": "^1.0.0",
     "@flue/cli": "latest",
     "@flue/opentelemetry": "latest",
     "@opentelemetry/api": "^1.9.0",

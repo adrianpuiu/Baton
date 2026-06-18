@@ -43,18 +43,33 @@ export async function renderDiagram(
   opts: RenderOptions = {},
 ): Promise<RenderResult> {
   await mkdir(dirname(outputPath), { recursive: true });
-  const args = [RENDER_SCRIPT, outputPath, ...(opts.bpmn ? ['--bpmn'] : [])];
+  const ast = parsePiperFlow(dsl); // parse once; needed for semantic BPMN + fallback
 
+  // The SEMANTIC BPMN XML is ALWAYS emitted directly from the AST. processpiper
+  // is authoritative for the PICTURE only — its BPMN export is lossy: it loses
+  // task types (every task becomes a plain <bpmn:task>), the data layer, and
+  // Executable-conformance detail. For soundness/reliability analysis and for
+  // clean import into Camunda/Signavio, the direct emitter is the source of
+  // truth. This keeps the .pf → .bpmn → .pf round-trip faithful: a @user task
+  // round-trips as <bpmn:userTask>, so the stall check still fires on re-import.
+  // (Without this, `baton check` on our own rendered showcase .bpmn would give a
+  // FALSE 'sound' because the userTask type — the stall signal — was dropped.)
+  let bpmnPath: string | undefined;
+  if (opts.bpmn) {
+    bpmnPath = outputPath.replace(/\.(png|svg)$/i, '') + '.bpmn';
+    await writeFile(bpmnPath, emitBpmn(ast, { slug: ast.title }));
+  }
+
+  // The picture: try processpiper, fall back to a Graphviz structural rendering
+  // of the same AST on grid-layout failure.
+  const args = [RENDER_SCRIPT, outputPath];
   try {
     const stdout = await runProcess(PYTHON, args, dsl);
     const parsed = JSON.parse(stdout || '{"ok":true,"artifacts":[]}');
     const artifacts: string[] = parsed.artifacts ?? [outputPath];
     const image = artifacts.find((a) => /\.(png|svg)$/i.test(a)) ?? outputPath;
-    const bpmn = artifacts.find((a) => /\.bpmn$/i.test(a));
-    return bpmn ? { image, bpmn } : { image };
+    return bpmnPath ? { image, bpmn: bpmnPath } : { image };
   } catch (primaryErr) {
-    // Fallback: Graphviz structural rendering from the parsed AST.
-    const ast = parsePiperFlow(dsl);
     const dot = toDot(ast);
     const fallbackPath = outputPath.replace(/\.(png|svg)$/i, '') + '-structural.png';
     try {
@@ -64,15 +79,7 @@ export async function renderDiagram(
         fallback: true,
         fallbackReason: summarise(primaryErr),
       };
-      // processpiper's BPMN export runs inside the same draw() that just
-      // failed, so it's lost with the image. Emit BPMN directly from the
-      // AST instead — the "three consumers" contract holds even when the
-      // grid-layout engine gives up on a large/wide process.
-      if (opts.bpmn) {
-        const bpmnPath = outputPath.replace(/\.(png|svg)$/i, '') + '.bpmn';
-        await writeFile(bpmnPath, emitBpmn(ast, { slug: ast.title }));
-        result.bpmn = bpmnPath;
-      }
+      if (bpmnPath) result.bpmn = bpmnPath;
       return result;
     } catch {
       // Graphviz not installed / also failed → propagate the original error.
