@@ -61,7 +61,14 @@ export function parsePiperFlow(dsl: string): ProcessAST {
 
     let m: RegExpMatchArray | null;
     if ((m = line.match(RE.title))) { ast.title = m[1]; continue; }
-    if ((m = line.match(RE.width))) { ast.width = Number(m[1]); continue; }
+    if ((m = line.match(RE.width))) {
+      // Clamp: the regex accepts arbitrarily long digit strings, but Number()
+      // loses precision above 2^53-1. Cap at MAX_SAFE_INTEGER so the AST stays
+      // faithful instead of silently rounding a huge render-width hint.
+      const w = Number(m[1]);
+      ast.width = w > Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : w;
+      continue;
+    }
     if ((m = line.match(RE.theme))) { ast.theme = m[1]; continue; }
     if ((m = line.match(RE.footer))) { ast.footer = m[1]; continue; }
     if ((m = line.match(RE.pool))) { currentPool = m[1]; currentLane = undefined; continue; }

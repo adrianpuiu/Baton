@@ -118,7 +118,12 @@ function select(skills: DiscoveredSkill[], minInstalls: number, max: number): Di
  * Never throws: network/offline failures yield an empty, `online:false` manifest.
  */
 export async function resolveSkills(ast: ProcessAST, opts: ResolveOptions = {}): Promise<SkillManifest> {
-  const minInstalls = opts.minInstalls ?? Number(process.env.SKILLS_MIN_INSTALLS ?? 500);
+  // Treat an unset / empty / non-numeric SKILLS_MIN_INSTALLS as the default so
+  // a typo'd or empty env var can't silently bypass the gate (empty → 0 admits
+  // zero-install skills) or kill it (NaN → every skill rejected).
+  const envMin = process.env.SKILLS_MIN_INSTALLS;
+  const parsedMin = envMin === undefined || envMin.trim() === '' ? 500 : Number(envMin);
+  const minInstalls = opts.minInstalls ?? (Number.isFinite(parsedMin) && parsedMin >= 0 ? parsedMin : 500);
   const maxPerLane = opts.maxPerLane ?? 2;
   const apiBase = opts.apiBase ?? process.env.SKILLS_API ?? 'https://skills.sh';
   const wantOnline = opts.online ?? true;

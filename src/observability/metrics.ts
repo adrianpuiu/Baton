@@ -63,67 +63,96 @@ const percentile = (sorted: number[], p: number): number => {
  * events only, not operation roll-ups.
  */
 export function aggregateMetrics(events: FlueEventRecord[]): Metrics {
-  const runs = events.filter((e) => e.type === 'run_end');
-  const runDur = runs.reduce((a, e) => a + (e.durationMs ?? 0), 0);
-
-  // per-lane operation latency + tokens/cost from model turns
+  // Single pass over events: per-lane operations/tokens/cost, gateway rates,
+  // tool calls, run tallies, and totals — no redundant filter/reduce passes.
   const laneOps = new Map<string, number[]>();
   const laneFails = new Map<string, number>();
   const laneTokens = new Map<string, number>();
   const laneCost = new Map<string, number>();
+  const gwMap = new Map<string, GatewayMetrics>();
+  const toolMap = new Map<string, { count: number; failures: number; totalMs: number }>();
+
+  let runTotal = 0;
+  let runSucceeded = 0;
+  let runFailed = 0;
+  let runDur = 0;
+  let lastRunId: string | undefined;
+  let totalTokens = 0;
+  let totalCost = 0;
 
   for (const e of events) {
+    if (e.type === 'run_end') {
+      runTotal++;
+      runDur += e.durationMs ?? 0;
+      if (e.isError) runFailed++;
+      else runSucceeded++;
+      lastRunId = e.runId;
+    }
+
+    // per-lane operation latency + tokens/cost from model turns
     const lane = String(e.session ?? e.harness ?? 'unknown');
     if (e.type === 'operation' && typeof e.durationMs === 'number') {
       (laneOps.get(lane) ?? laneOps.set(lane, []).get(lane)!).push(e.durationMs);
       if (e.isError) laneFails.set(lane, (laneFails.get(lane) ?? 0) + 1);
     }
     if (e.type === 'turn' && e.usage) {
-      laneTokens.set(lane, (laneTokens.get(lane) ?? 0) + (e.usage.totalTokens ?? 0));
-      laneCost.set(lane, (laneCost.get(lane) ?? 0) + (e.usage.cost?.total ?? 0));
+      const t = e.usage.totalTokens ?? 0;
+      const c = e.usage.cost?.total ?? 0;
+      totalTokens += t;
+      totalCost += c;
+      laneTokens.set(lane, (laneTokens.get(lane) ?? 0) + t);
+      laneCost.set(lane, (laneCost.get(lane) ?? 0) + c);
     }
-  }
 
-  const lanes: LaneMetrics[] = [...laneOps.keys()].map((lane) => {
-    const d = [...(laneOps.get(lane) ?? [])].sort((a, b) => a - b);
-    return {
-      lane, operations: d.length, p50Ms: percentile(d, 50), p95Ms: percentile(d, 95),
-      failures: laneFails.get(lane) ?? 0, tokens: laneTokens.get(lane) ?? 0,
-      cost: Math.round((laneCost.get(lane) ?? 0) * 1e6) / 1e6,
-    };
-  }).sort((a, b) => b.operations - a.operations);
-
-  // gateway branch rates — emitted by the executor via ctx.log
-  const gateways: GatewayMetrics[] = [];
-  for (const e of events) {
+    // gateway branch rates — emitted by the executor via ctx.log
     if (e.type === 'log' && e.message === 'gateway decision' && e.attributes) {
       const a = e.attributes as Record<string, unknown>;
       const key = `${String(a.lane)}/${String(a.label)}`;
-      const g = gateways.find((x) => `${x.lane}/${x.label}` === key) ?? gateways[gateways.push({ lane: String(a.lane), label: String(a.label), total: 0, yes: 0, no: 0 }) - 1];
-      g.total++;
-      if (a.decision === 'yes') g.yes++;
-      else if (a.decision === 'no') g.no++;
+      const g = gwMap.get(key);
+      if (g) {
+        g.total++;
+        if (a.decision === 'yes') g.yes++;
+        else if (a.decision === 'no') g.no++;
+      } else {
+        gwMap.set(key, {
+          lane: String(a.lane), label: String(a.label), total: 1,
+          yes: a.decision === 'yes' ? 1 : 0, no: a.decision === 'no' ? 1 : 0,
+        });
+      }
+    }
+
+    // tool calls
+    if (e.type === 'tool') {
+      const name = (e as FlueEventRecord & { toolName?: string }).toolName ?? 'unknown';
+      const t = toolMap.get(name) ?? toolMap.set(name, { count: 0, failures: 0, totalMs: 0 }).get(name)!;
+      t.count++;
+      t.totalMs += e.durationMs ?? 0;
+      if (e.isError) t.failures++;
     }
   }
 
-  // tool calls
-  const toolMap = new Map<string, { count: number; failures: number; totalMs: number }>();
-  for (const e of events) {
-    if (e.type !== 'tool') continue;
-    const name = (e as FlueEventRecord & { toolName?: string }).toolName ?? 'unknown';
-    const t = toolMap.get(name) ?? toolMap.set(name, { count: 0, failures: 0, totalMs: 0 }).get(name)!;
-    t.count++; t.totalMs += e.durationMs ?? 0;
-    if (e.isError) t.failures++;
-  }
-  const toolCalls = [...toolMap.entries()].map(([name, v]) => ({ name, ...v, totalMs: Math.round(v.totalMs) }))
+  // Per-lane breakdown keyed by the UNION of ops/tokens/cost, so a lane that
+  // only logged model turns (no operation events) still appears with its tokens
+  // and cost instead of being silently dropped.
+  const lanes: LaneMetrics[] = [...new Set<string>([...laneOps.keys(), ...laneTokens.keys(), ...laneCost.keys()])]
+    .map((lane) => {
+      const d = [...(laneOps.get(lane) ?? [])].sort((a, b) => a - b);
+      return {
+        lane, operations: d.length, p50Ms: percentile(d, 50), p95Ms: percentile(d, 95),
+        failures: laneFails.get(lane) ?? 0, tokens: laneTokens.get(lane) ?? 0,
+        cost: Math.round((laneCost.get(lane) ?? 0) * 1e6) / 1e6,
+      };
+    })
+    .sort((a, b) => b.operations - a.operations);
+
+  const toolCalls = [...toolMap.entries()]
+    .map(([name, v]) => ({ name, ...v, totalMs: Math.round(v.totalMs) }))
     .sort((a, b) => b.count - a.count);
 
-  const totalTokens = events.filter((e) => e.type === 'turn').reduce((a, e) => a + (e.usage?.totalTokens ?? 0), 0);
-  const totalCost = Math.round(events.filter((e) => e.type === 'turn').reduce((a, e) => a + (e.usage?.cost?.total ?? 0), 0) * 1e6) / 1e6;
-
   return {
-    run: { id: runs.at(-1)?.runId, total: runs.length, succeeded: runs.filter((r) => !r.isError).length, failed: runs.filter((r) => r.isError).length, durationMs: Math.round(runDur) },
-    lanes, gateways, toolCalls, totalTokens, totalCost,
+    run: { id: lastRunId, total: runTotal, succeeded: runSucceeded, failed: runFailed, durationMs: Math.round(runDur) },
+    lanes, gateways: [...gwMap.values()], toolCalls, totalTokens,
+    totalCost: Math.round(totalCost * 1e6) / 1e6,
     at: new Date().toISOString(),
   };
 }
@@ -132,6 +161,13 @@ export function aggregateMetrics(events: FlueEventRecord[]): Metrics {
 export function aggregateFromFile(path = join(process.cwd(), 'telemetry', 'events.jsonl')): Metrics {
   let raw = '';
   try { raw = readFileSync(path, 'utf-8'); } catch { /* empty sink → empty metrics */ }
-  const events = raw.split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l) as FlueEventRecord; } catch { return null; } }).filter(Boolean) as FlueEventRecord[];
+  // Single pass, no extra null-array: the old `.filter().map().filter()` chain
+  // allocated a second full copy. The active file is size-bounded by the sink's
+  // rotation, so this read stays bounded too.
+  const events: FlueEventRecord[] = [];
+  for (const line of raw.split('\n')) {
+    if (!line) continue;
+    try { events.push(JSON.parse(line) as FlueEventRecord); } catch { /* skip malformed line */ }
+  }
   return aggregateMetrics(events);
 }

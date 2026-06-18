@@ -1,8 +1,8 @@
-import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { parsePiperFlow } from '../compiler/parse.js';
 import { toDot } from './graphviz.js';
+import { spawnCapture } from '../utils/spawn.js';
 
 const PYTHON = process.env.PYTHON ?? 'python3';
 // Resolve against process.cwd() (the project root when run via `flue run`).
@@ -71,28 +71,17 @@ export async function renderDiagram(
 }
 
 function runProcess(cmd: string, args: string[], stdin: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
-    let out = '';
-    let stderr = '';
-    proc.stdout.on('data', (d) => (out += d.toString()));
-    proc.stderr.on('data', (d) => (stderr += d.toString()));
-    proc.on('error', reject);
-    proc.on('close', (code) =>
-      code === 0 ? resolve(out) : reject(new Error(`render.py exited ${code}\n${stderr}`)),
-    );
-    proc.stdin.end(stdin);
+  return spawnCapture(cmd, args, { stdin, timeout: 60_000 }).then((r) => {
+    if (r.timedOut) throw new Error(`render process '${cmd}' timed out after 60s`);
+    if (r.code !== 0) throw new Error(`render.py exited ${r.code}\n${r.stderr}`);
+    return r.stdout;
   });
 }
 
 function renderWithGraphviz(dot: string, outPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('dot', ['-Tpng', '-o', outPath], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let stderr = '';
-    proc.stderr.on('data', (d) => (stderr += d.toString()));
-    proc.on('error', reject);
-    proc.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr))));
-    proc.stdin.end(dot);
+  return spawnCapture('dot', ['-Tpng', '-o', outPath], { stdin: dot, timeout: 60_000 }).then((r) => {
+    if (r.timedOut) throw new Error('graphviz (dot) timed out after 60s');
+    if (r.code !== 0) throw new Error(r.stderr || `dot exited ${r.code}`);
   });
 }
 

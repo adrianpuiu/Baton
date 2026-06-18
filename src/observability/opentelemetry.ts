@@ -41,8 +41,10 @@ export async function maybeRegisterOpenTelemetry(): Promise<void> {
   observe(createOpenTelemetryObserver());
   registered = true;
 
-  // flush on shutdown so spans reach the collector
-  process.on('SIGTERM', () => sdk.shutdown().catch(() => {}));
+  // Flush on shutdown so spans reach the collector, THEN exit. Node keeps the
+  // process alive once a SIGTERM listener is attached, so without process.exit
+  // the server hangs and the exporter's HTTP keep-alive sockets leak.
+  process.on('SIGTERM', () => sdk.shutdown().catch(() => {}).finally(() => process.exit(0)));
 }
 
 // Hint to typecheckers that FlueContext is referenced for doc context.

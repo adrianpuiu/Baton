@@ -35,8 +35,9 @@ const roleInstructions = (lane: string, pool?: string): string =>
  *   lane            → defineAgentProfile + subagent on the coordinator
  *   task/subprocess → session.task(label, { agent })
  *   exclusive gw    → session.task(...) with yes/no result → if/else
- *   parallel gw     → Promise.all([...]) over all outgoing branches
- *   inclusive gw    → Promise.all([...]) over branches (superset behaviour)
+ *   parallel gw     → fan out to all branches (emitted SEQUENTIALLY — Flue's
+ *                     coordinator session is single-operation; see ADR-6)
+ *   inclusive gw    → fan out to branches (emitted sequentially, superset behaviour)
  *
  * The output is a first-class Flue workflow: drop it in src/workflows/ and run
  * it with `flue run <name>`.
