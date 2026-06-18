@@ -21,6 +21,7 @@
     "dev": "flue dev --target node",
     "build": "flue build --target node",
     "build:cli": "tsc -p tsconfig.cli.json",
+    "rfp:build": "tsx scripts/build-rfp.ts",
     "prepublishOnly": "npm run build:cli",
     "start": "node dist/server.mjs",
     "run:design": "flue run design-process --target node",

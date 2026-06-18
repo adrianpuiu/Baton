@@ -215,3 +215,31 @@ shows where it failed). ✅ Both guards are observable (logged as warnings).
 ⚠️ A legitimately long step could hit the timeout — mitigated by a generous
 default and `STEP_TIMEOUT_MS` override. ⚠️ The repetition heuristic could miss
 a slow-drift loop, but the timeout is the hard backstop regardless.
+
+---
+
+## Known limitation — Parallel-join traversal duplicates the post-join flow (codegen)
+
+**Context.** When the Flue codegen emitter walks a process with a parallel
+split/join, it emits the flow *after* the join once per parallel branch. For a
+split into N branches, every step downstream of the matching join is generated
+N times.
+
+**Why it's surfaced now.** Most showcases (onboarding, order-fulfilment) have a
+simple linear chain after their join, so the duplication is *silently* wrong
+(the post-join tasks just run N times) but typechecks cleanly. The RFP showcase
+exposes it because its post-join flow contains an exclusive gateway, whose
+generated `const <gateway>_decision` gets redeclared across branches — a
+hard type error.
+
+**Status.** The generated workflows (`src/workflows/gen-*.ts`) are build
+artifacts (gitignored) and are excluded from the source typecheck via
+`tsconfig.json`, so this does not break CI or the shipped CLI. The
+**soundness/reliability analysis — the actual product wedge — is unaffected**;
+it operates on the AST/Petri net directly, not on generated code.
+
+**Fix direction (when the runnable-workflow path becomes the focus).** The
+emitter's traversal must treat a parallel join as a convergence point: emit
+each branch body up to the join, then emit the shared post-join flow exactly
+once after all branches. This is a focused change in `src/compiler/emit.ts`
+guarded by the compiler test suite.

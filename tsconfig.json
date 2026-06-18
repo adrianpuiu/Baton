@@ -15,5 +15,8 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": ["src", "scripts", "flue.config.ts"]
+  "include": ["src", "scripts", "flue.config.ts"],
+  "exclude": [
+    "src/workflows/gen-*.ts"
+  ]
 }
