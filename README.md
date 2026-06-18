@@ -280,6 +280,7 @@ The compiler and renderer are covered by real assertions (`node:test`) and run o
 
 ```bash
 npm run typecheck   # tsc --noEmit
+npm run lint        # eslint + typescript-eslint (recommended)
 npm test            # node:test — parser, emitter, parse-error contract, rendering
 ```
 

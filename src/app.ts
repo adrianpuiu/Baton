@@ -8,7 +8,7 @@
  * This is the equivalent of the Appian-REST-API move: we're wrapping a service
  * we don't control with a clean, typed integration instead of ad-hoc fetches.
  */
-import { registerProvider, observe, type FlueContext } from '@flue/runtime';
+import { registerProvider, observe } from '@flue/runtime';
 import { flue } from '@flue/runtime/routing';
 import { Hono } from 'hono';
 import { jsonlSink } from './observability/sink.js';

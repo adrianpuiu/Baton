@@ -1,5 +1,5 @@
 import { createAgent, type FlueContext } from '@flue/runtime';
-import { writeFile, mkdir, readFile, stat } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { laneKey } from '../compiler/emit.js';

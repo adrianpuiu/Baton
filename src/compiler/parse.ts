@@ -1,4 +1,4 @@
-import type { ProcessAST, ProcessElement, Lane } from './types.js';
+import type { ProcessAST, ProcessElement } from './types.js';
 
 export class ParseError extends Error {}
 
