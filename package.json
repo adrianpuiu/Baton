@@ -5,9 +5,10 @@
   "type": "module",
   "description": "Turn a business-process description into a BPMN diagram AND a live Flue agent workflow. One PiperFlow DSL, two consumers: a picture and an executable.",
   "scripts": {
-    "test:render": "tsx scripts/test-render.ts",
-    "test:compiler": "tsx scripts/test-compiler.ts",
-    "test:bounds": "tsx scripts/test-bounds.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:compiler": "node --import tsx --test test/compiler.test.ts test/parse-errors.test.ts",
+    "test:render": "node --import tsx --test test/render.test.ts",
+    "typecheck": "tsc --noEmit",
     "resolve:skills": "tsx scripts/test-resolver.ts",
     "lock:skills": "tsx scripts/lock-skills.ts",
     "generate:skills": "tsx scripts/generate-skills.ts",

@@ -1,5 +1,7 @@
 # Baton
 
+[![CI](https://github.com/adrianpuiu/Baton/actions/workflows/ci.yml/badge.svg)](https://github.com/adrianpuiu/Baton/actions/workflows/ci.yml)
+
 > **Business processes that run themselves.**
 >
 > Describe a process in plain English → a **BPMN diagram**, an **enterprise BPMN XML file**, *and* a **live multi-agent workflow** that runs it. One PiperFlow DSL, three consumers. Self-hosted model — no per-token cost, no vendor lock-in, no data egress.
@@ -271,6 +273,17 @@ A working system, live-tested against a local vLLM model. Honest status:
 - [ ] **Direct AST→BPMN emitter** — large processes that hit processpiper's layout limit lose their BPMN file; a direct emitter would preserve enterprise interchange for any size.
 - [ ] **HTTP surface** — expose `design-process` behind `route` so stakeholders POST a description and get everything back.
 - [ ] **Fully agentic variant** — let the orchestrator choose tools via Flue tool-calling instead of the current procedural flow.
+
+## Development
+
+The compiler and renderer are covered by real assertions (`node:test`) and run on every push via CI:
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm test            # node:test — parser, emitter, parse-error contract, rendering
+```
+
+The render test degrades to the Graphviz structural fallback when processpiper isn't installed, so it runs anywhere Graphviz is present (including CI) and skips cleanly otherwise.
 
 ## License
 
