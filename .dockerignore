@@ -23,4 +23,3 @@ src/workflows/gen-*.ts
 
 # CI/docs that don't help the runtime.
 .github
-.linkedin-post.md
