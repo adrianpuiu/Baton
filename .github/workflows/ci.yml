@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref — keeps the queue cheap.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: typecheck & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # The render test degrades to the Graphviz structural fallback when
+      # processpiper isn't installed. We install Graphviz so CI exercises that
+      # documented path instead of skipping rendering entirely.
+      - name: Install Graphviz (render fallback backend)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends graphviz
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
