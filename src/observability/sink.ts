@@ -1,12 +1,13 @@
 import { appendFile, mkdir, stat, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { positiveIntEnv } from '../utils/env.js';
 
 const SINK = process.env.TELEMETRY_SINK ?? join(process.cwd(), 'telemetry', 'events.jsonl');
-const MAX_ATTR_BYTES = Number(process.env.TELEMETRY_MAX_ATTR_BYTES ?? 4096);
+const MAX_ATTR_BYTES = positiveIntEnv('TELEMETRY_MAX_ATTR_BYTES', 4096);
 // Roll the active sink over to a single archive once it crosses this size, so a
 // long-lived server can't grow the file without bound (and neither /metrics nor
 // the dashboard re-materialise an ever-growing history on every read).
-const MAX_BYTES = Number(process.env.TELEMETRY_MAX_BYTES ?? 50 * 1024 * 1024);
+const MAX_BYTES = positiveIntEnv('TELEMETRY_MAX_BYTES', 50 * 1024 * 1024);
 
 let ready: Promise<void> | null = null;
 const ensureDir = (): Promise<void> => (ready ??= mkdir(dirname(SINK), { recursive: true }).then(() => undefined));
