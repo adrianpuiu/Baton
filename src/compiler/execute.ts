@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import type { ProcessAST } from './types.js';
 import { isStart, isParallel } from './types.js';
+import { positiveIntEnv } from '../utils/env.js';
 
 export interface ExecutionStep {
   id: string;
@@ -51,7 +52,7 @@ export async function executeProcess(
   // Bounded execution: each model call is capped so a degenerate thinking
   // loop (a known failure mode of hybrid reasoning models) can't hang the
   // whole pipeline. Default 120s/step; override via STEP_TIMEOUT_MS.
-  const stepTimeoutMs = opts?.stepTimeoutMs ?? Number(process.env.STEP_TIMEOUT_MS ?? 120_000);
+  const stepTimeoutMs = opts?.stepTimeoutMs ?? positiveIntEnv('STEP_TIMEOUT_MS', 120_000);
   const byId = new Map(ast.elements.map((e) => [e.id, e] as const));
   const outFrom = (id: string) => ast.edges.filter((e) => e.from === id);
 
