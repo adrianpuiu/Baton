@@ -26,6 +26,34 @@ export type ActivityVariant = 'task' | 'subprocess';
 export type GatewayVariant = 'exclusive' | 'parallel' | 'inclusive' | 'event';
 
 /**
+ * A boundary event attached to an activity (BPMN `attachedToRef`).
+ *
+ * This is the construct that makes escalation possible: a timer or escalation
+ * boundary on an activity says "if this takes too long / is escalated, branch
+ * here." The stall-vulnerability checker flags any human task (userTask) that
+ * has no interrupting timer/escalation boundary — i.e. nothing can pull it out
+ * of an indefinite wait.
+ */
+export interface BoundaryEvent {
+  id: string;
+  /** The activity this boundary is attached to. */
+  attachedTo: string;
+  /** Event trigger type. */
+  type: 'timer' | 'escalation' | 'message' | 'signal' | 'error' | 'conditional';
+  /** Interrupting (cancelActivity=true) vs non-interrupting. */
+  interrupting: boolean;
+  /** Optional escalation code (for escalation boundaries) or timer expression. */
+  code?: string;
+}
+
+/** A process-level escalation definition (BPMN escalation + escalationCode). */
+export interface EscalationDef {
+  id: string;
+  code?: string;
+}
+
+
+/**
  * BPMN Task sub-types ( OMG metamodel: Task has these implementations).
  * 'none' = a plain <task> with no specific implementation declared.
  * Only meaningful when an activity's variant is 'task' (subprocess has none).
@@ -57,6 +85,13 @@ export interface ProcessElement {
    * it, multi-instance can fan out over it.
    */
   ioSpec?: { inputs: string[]; outputs: string[] };
+  /**
+   * Boundary events attached to this activity (timer/escalation/message/...).
+   * Drives the stall-vulnerability + escalation-coverage checks. An activity
+   * with an interrupting timer or escalation boundary is "rescuable" — it can be
+   * pulled out of an indefinite wait. One without is stall-vulnerable.
+   */
+  boundaryEvents?: BoundaryEvent[];
 }
 
 /** A process-level data artifact (BPMN dataObject) with an optional type. */
@@ -87,6 +122,10 @@ export interface ProcessAST {
   edges: Edge[];
   /** Declared data artifacts (BPMN dataObjects). Drives ioSpecification + associations. */
   dataObjects: DataObject[];
+  /** Boundary events attached to activities (drives stall + escalation checks). */
+  boundaryEvents?: BoundaryEvent[];
+  /** Process-level escalation definitions (BPMN escalation + escalationCode). */
+  escalations?: EscalationDef[];
 }
 
 /** Convenience guards used by the compiler and executor. */

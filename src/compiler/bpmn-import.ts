@@ -18,7 +18,7 @@
  */
 
 import { XMLParser } from 'fast-xml-parser';
-import type { ProcessAST, ProcessElement, ElementCategory, TaskType, Lane } from './types.js';
+import type { ProcessAST, ProcessElement, ElementCategory, TaskType, Lane, BoundaryEvent, EscalationDef } from './types.js';
 
 /** BPMN element tag → our category/variant (+optional taskType). */
 const ELEMENT_MAP: Record<string, { category: ElementCategory; variant: ProcessElement['variant']; taskType?: TaskType }> = {
@@ -120,6 +120,30 @@ export function importBpmn(xml: string): ProcessAST {
   // Walk the process's direct children once, partitioning by tag.
   const elements: ProcessElement[] = [];
   const knownElementIds = new Set<string>();
+  // Boundary events attach to activities via attachedToRef. We collect them here
+  // and resolve them after the element loop (the host activity must exist).
+  const boundaryEvents: BoundaryEvent[] = [];
+  type TriggerInfo = { type: BoundaryEvent['type']; code?: string };
+  const detectTrigger = (node: XmlNode): TriggerInfo | undefined => {
+    // A boundary carries exactly one event definition child. Detect in priority
+    // order; absence of any definition means a "none" boundary (rare) → skip.
+    if (node['bpmn:timerEventDefinition'] || node['timerEventDefinition']) {
+      const td = (node['bpmn:timerEventDefinition'] ?? node['timerEventDefinition']) as XmlNode | undefined;
+      const expr = (td?.['bpmn:timeDuration'] ?? td?.['timeDuration'] ?? td?.['bpmn:timeDate'] ?? td?.['timeDate']) as XmlNode | undefined;
+      const exprText = (expr?.['#text'] as string | undefined) ?? (expr?.['@_xsi:type'] as string | undefined);
+      return { type: 'timer', ...(exprText ? { code: exprText } : {}) };
+    }
+    if (node['bpmn:escalationEventDefinition'] || node['escalationEventDefinition']) {
+      const ed = (node['bpmn:escalationEventDefinition'] ?? node['escalationEventDefinition']) as XmlNode | undefined;
+      const ref = ed?.['@_escalationRef'] as string | undefined;
+      return { type: 'escalation', ...(ref ? { code: ref } : {}) };
+    }
+    if (node['bpmn:messageEventDefinition'] || node['messageEventDefinition']) return { type: 'message' };
+    if (node['bpmn:signalEventDefinition'] || node['signalEventDefinition']) return { type: 'signal' };
+    if (node['bpmn:errorEventDefinition'] || node['errorEventDefinition']) return { type: 'error' };
+    if (node['bpmn:conditionalEventDefinition'] || node['conditionalEventDefinition']) return { type: 'conditional' };
+    return undefined;
+  };
   for (const [key, value] of Object.entries(process)) {
     if (key.startsWith('@_')) continue; // attribute
     const tag = localName(key);
@@ -135,6 +159,26 @@ export function importBpmn(xml: string): ProcessAST {
         mapping.variant === 'start' || mapping.variant === 'end'
           ? mapping.variant.charAt(0).toUpperCase() + mapping.variant.slice(1)
           : (nameAttr ?? id);
+
+      // Boundary events: a special case. They are NOT first-class flow elements
+      // in our AST (they attach to an activity). Collect them for the stall /
+      // escalation checks instead of emitting an element.
+      if (tag === 'boundaryEvent') {
+        const attachedTo = node['@_attachedToRef'] as string | undefined;
+        const interrupting = (node['@_cancelActivity'] as string | undefined) !== 'false'; // default true
+        const trigger = detectTrigger(node);
+        if (attachedTo && trigger) {
+          boundaryEvents.push({
+            id,
+            attachedTo,
+            type: trigger.type,
+            interrupting,
+            ...(trigger.code ? { code: trigger.code } : {}),
+          });
+        }
+        continue;
+      }
+
       elements.push({
         id,
         label,
@@ -155,9 +199,34 @@ export function importBpmn(xml: string): ProcessAST {
     const from = sf['@_sourceRef'] as string | undefined;
     const to = sf['@_targetRef'] as string | undefined;
     if (!from || !to) continue;
-    if (!knownElementIds.has(from) || !knownElementIds.has(to)) continue;
+    // Boundary events CAN be sequence-flow sources (the escalation branch). They
+    // are not in knownElementIds, so allow from/to to reference a boundary by id.
+    const fromOk = knownElementIds.has(from) || boundaryEvents.some((b) => b.id === from);
+    const toOk = knownElementIds.has(to) || boundaryEvents.some((b) => b.id === to);
+    if (!fromOk || !toOk) continue;
     const name = sf['@_name'] as string | undefined;
     edges.push({ from, to, ...(name ? { label: name } : {}) });
+  }
+
+  // Process-level escalation definitions (escalationRef targets).
+  const escalations: EscalationDef[] = [];
+  for (const esc of asArray((defs['bpmn:escalation'] as XmlNode | XmlNode[] | undefined) ?? undefined)) {
+    const id = (esc['@_id'] as string) ?? `escalation-${escalations.length}`;
+    const code = esc['@_escalationCode'] as string | undefined;
+    escalations.push({ id, ...(code ? { code } : {}) });
+  }
+
+  // Attach boundary events to their host activities so the stall check has the
+  // context locally. Also keep the flat list on the AST for escalation-coverage.
+  const boundaryByHost = new Map<string, BoundaryEvent[]>();
+  for (const b of boundaryEvents) {
+    const list = boundaryByHost.get(b.attachedTo) ?? [];
+    list.push(b);
+    boundaryByHost.set(b.attachedTo, list);
+  }
+  for (const el of elements) {
+    const hosted = boundaryByHost.get(el.id);
+    if (hosted) el.boundaryEvents = hosted;
   }
 
   return {
@@ -166,5 +235,7 @@ export function importBpmn(xml: string): ProcessAST {
     elements,
     edges,
     dataObjects: [], // control-flow import only; data layer out of scope for v1
+    ...(boundaryEvents.length ? { boundaryEvents } : {}),
+    ...(escalations.length ? { escalations } : {}),
   };
 }

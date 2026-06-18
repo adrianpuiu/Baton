@@ -2,11 +2,15 @@
 
 [![CI](https://github.com/adrianpuiu/Baton/actions/workflows/ci.yml/badge.svg)](https://github.com/adrianpuiu/Baton/actions/workflows/ci.yml)
 
-> **SonarQube for BPMN — formal soundness checking for your business processes.**
+> **SonarQube for BPMN — static reliability analysis for your business processes.**
 >
-> Point Baton at a process file (your own BPMN 2.0 export from Camunda, Signavio, or Appian, or Baton's PiperFlow DSL) and it tells you whether it's **sound** *before* you deploy it: can it deadlock? Are there dead branches? Does it complete improperly? No engine lock-in, runs locally, fits in CI.
+> Point Baton at a process file (your own BPMN 2.0 export from Camunda, Signavio, or Appian, or Baton's PiperFlow DSL) and it tells you two things *before* you deploy it:
+> 1. **Is it sound?** — can it deadlock? are there dead branches? does it complete improperly? (formal control-flow correctness)
+> 2. **Is it reliable?** — can any human task / approval stall forever because it has no escalation path? are there orphan escalation references?
 >
-> The reliability layer most BPMS tools ship as *post-hoc* runtime dashboards, Baton proves **statically at design time** — engine-agnostic, on the BPMN you already have.
+> The reliability analysis is the wedge: most BPMS tools (e.g. Camunda Optimize) only discover stalled approvals *after* deploy, from runtime data. Baton proves it **statically, at design time** — engine-agnostic, on the BPMN you already have, offline.
+>
+> No engine lock-in. Runs locally. Fits in CI.
 
 ## Install & run
 

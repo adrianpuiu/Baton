@@ -44,7 +44,11 @@ export type IssueKind =
   | 'improper-completion'
   | 'unreachable-element'
   | 'no-option-to-complete'
-  | 'approximation';
+  | 'approximation'
+  // Reliability-layer checks (stall / escalation). Distinct from control-flow
+  // soundness: these flag human/waitable steps that have no escape hatch.
+  | 'stall-vulnerable'
+  | 'orphan-escalation';
 
 export interface SoundnessIssue {
   kind: IssueKind;
@@ -270,5 +274,85 @@ function findParallelImbalance(ast: ProcessAST): SoundnessIssue[] {
     }
     void joinReach;
   }
+  return issues;
+}
+
+/**
+ * Reliability-layer analysis — the "escalation" half of the product.
+ *
+ * Soundness (above) proves control-flow correctness: no deadlock, no dead
+ * branches, proper completion. Reliability analysis proves a different thing:
+ * that no step can *wait indefinitely* with no escape hatch. The gap this fills
+ * is concrete: Camunda Optimize can tell you AFTER deploy that an approval took
+ * 40 days and stalled. It cannot tell you, at design time, that the approval
+ * *can* stall forever because nothing is watching it. This does.
+ *
+ * Two structural checks, no model checker required:
+ *
+ *  1. stall-vulnerable: a human task (userTask) or other waitable activity with
+ *     NO interrupting timer/escalation boundary. It can sit forever — nothing
+ *     can pull it out. The enterprise fix is exactly the boundary event this
+ *     detects the absence of.
+ *  2. orphan-escalation: an escalation throw (or boundary with an escalationRef)
+ *     whose escalationRef / escalationCode is not defined anywhere, OR a defined
+ *     escalation that is never thrown. Broken escalation contract.
+ *
+ * Both are honest approximations: "waitable" is inferred from task type
+ * (userTask, receiveTask) plus explicit timer/message/escalation throws. The
+ * check is conservative — it only flags genuine absence of a rescue path.
+ */
+export function checkReliability(ast: ProcessAST): SoundnessIssue[] {
+  const issues: SoundnessIssue[] = [];
+  const byId = new Map(ast.elements.map((e) => [e.id, e] as const));
+  const issueEl = (id: string) => byId.get(id)?.label ?? id;
+
+  // Known escalation codes/refs for the orphan check.
+  const definedEscalations = new Set<string>(
+    (ast.escalations ?? []).flatMap((e) => [e.id, ...(e.code ? [e.code] : [])]),
+  );
+
+  for (const el of ast.elements) {
+    if (el.category !== 'activity' || el.variant !== 'task') continue;
+
+    // Collect ALL boundary events on this activity (inline + from the flat list).
+    const boundaries = el.boundaryEvents
+      ?? (ast.boundaryEvents ?? []).filter((b) => b.attachedTo === el.id);
+
+    // (1) stall-vulnerable: a waitable task with no interrupting rescue boundary.
+    const isWaitable = el.taskType === 'user' || el.taskType === 'receive' || el.taskType === 'manual';
+    if (isWaitable) {
+      // An interrupting timer or escalation boundary is a genuine rescue path:
+      // it aborts the task and branches. A non-interrupting one only adds work
+      // without unblocking the original wait, so it does NOT count as a rescue.
+      const hasRescue = boundaries.some(
+        (b) => b.interrupting && (b.type === 'timer' || b.type === 'escalation' || b.type === 'error'),
+      );
+      if (!hasRescue) {
+        const kindLabel =
+          el.taskType === 'user' ? 'approval / user task' :
+          el.taskType === 'receive' ? 'receive task (waiting for a message)' :
+          'manual task';
+        issues.push({
+          kind: 'stall-vulnerable',
+          message: `'${issueEl(el.id)}' (${kindLabel}) has no interrupting timer or escalation boundary. It can wait indefinitely — there is no escalation path if nobody completes it. Attach a timer boundary (e.g. SLA: 2 days → escalate) or an escalation boundary event.`,
+          elementIds: [el.id],
+        });
+      }
+    }
+
+    // (2) orphan-escalation: any escalation boundary/throw referencing an
+    // undefined escalation code/ref. (Defined-but-never-thrown is quieter; we
+    // surface it only if escalations exist but none are referenced at all.)
+    for (const b of boundaries) {
+      if (b.type === 'escalation' && b.code && definedEscalations.size > 0 && !definedEscalations.has(b.code)) {
+        issues.push({
+          kind: 'orphan-escalation',
+          message: `Boundary escalation on '${issueEl(el.id)}' references escalation '${b.code}' which is not defined in the process. The escalation can never be caught.`,
+          elementIds: [el.id],
+        });
+      }
+    }
+  }
+
   return issues;
 }

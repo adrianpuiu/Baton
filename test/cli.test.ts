@@ -116,6 +116,34 @@ test('CLI: --json emits machine-readable output with the contract shape', () => 
   assert.ok(parsed.defects.every((d: { kind: string; elementIds: unknown; message: string }) => d.kind && Array.isArray(d.elementIds) && typeof d.message === 'string'));
 });
 
+// A hand-crafted BPMN process that is control-flow SOUND but has a
+// stall-vulnerable approval — the headline value proposition isolated. The
+// merged CLI verdict must be unsound because of the reliability defect alone.
+const soundButStalledBpmn = join(tmp, 'sound-but-stalled.bpmn');
+test('CLI fixtures: write a control-flow-sound-but-stall-vulnerable .bpmn', { concurrency: false }, () => {
+  if (!existsSync(tmp)) mkdirSync(tmp, { recursive: true });
+  writeFileSync(soundButStalledBpmn, `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" targetNamespace="http://baton">
+  <bpmn:process id="approval" name="Budget Approval" isExecutable="false">
+    <bpmn:startEvent id="s" name="Start"/>
+    <bpmn:userTask id="a" name="Manager approves"/>
+    <bpmn:endEvent id="e" name="End"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="a"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="a" targetRef="e"/>
+  </bpmn:process>
+</bpmn:definitions>`);
+});
+
+test('CLI: control-flow-sound-but-stalled process → exit 1 (reliability defect breaks the verdict)', () => {
+  if (!cliReady) return;
+  const r = run('check', soundButStalledBpmn);
+  assert.equal(r.code, 1, `expected 1 for stall-vulnerable, got ${r.code}\n${r.stdout}`);
+  assert.match(r.stdout, /Reliability defects/);
+  assert.match(r.stdout, /stall-vulnerable/);
+  // Critically: NO control-flow defects — the unsoundness is purely reliability.
+  assert.doesNotMatch(r.stdout, /Control-flow defects/);
+});
+
 test('CLI: --quiet emits nothing and relies on the exit code', () => {
   if (!cliReady) return;
   const r = run('check', brokenBpmn, '--quiet');

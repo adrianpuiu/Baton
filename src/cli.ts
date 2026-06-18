@@ -16,7 +16,8 @@
 import { readFileSync } from 'node:fs';
 import { parsePiperFlow, ParseError } from './compiler/parse.js';
 import { importBpmn, BpmnImportError } from './compiler/bpmn-import.js';
-import { checkSoundness } from './compiler/soundness.js';
+import { checkSoundness, checkReliability } from './compiler/soundness.js';
+import type { SoundnessIssue } from './compiler/soundness.js';
 import type { ProcessAST } from './compiler/types.js';
 
 const VERSION = '0.1.0';
@@ -37,9 +38,16 @@ EXIT CODES
   0  sound          1  unsound (defects)          2  usage/parse error
 
 Baton ingests any BPMN 2.0 export (Camunda / Signavio / Appian) or its own
-PiperFlow DSL and tells you whether the process can deadlock, has dead
-branches, or completes improperly — the formal-correctness layer most BPMN
-tools don't ship. Local-first; runs offline.`;
+PiperFlow DSL and tells you two things:
+
+  1. Is the process SOUND? — can it deadlock? are there dead branches?
+     does it complete improperly? (formal control-flow correctness)
+  2. Is the process RELIABLE? — can any human task / approval stall forever
+     because it has no escalation path? are there orphan escalation refs?
+
+The reliability layer is what most BPMN tools only discover AFTER deploy
+(e.g. a stalled approval). Baton proves it statically, at design time.
+Local-first; runs offline.`;
 }
 
 interface Args {
@@ -88,7 +96,19 @@ function loadProcess(file: string): ProcessAST {
 function runCheck(args: Args): void {
   if (!args.file) { console.error(`usage: baton check <file>\n\n${usage()}`); process.exit(2); }
   const ast = loadProcess(args.file);
-  const result = checkSoundness(ast);
+  const soundness = checkSoundness(ast);
+  const reliabilityIssues = checkReliability(ast);
+
+  // Merge: a process is "sound" only if BOTH control-flow AND reliability pass.
+  // Reliability defects (stall-vulnerable, orphan-escalation) are just as much
+  // deployment blockers as deadlocks — they're just a different class of risk.
+  const allIssues: SoundnessIssue[] = [...soundness.issues, ...reliabilityIssues];
+  const result = {
+    sound: soundness.sound && reliabilityIssues.length === 0,
+    stats: soundness.stats,
+    notes: soundness.notes,
+    issues: allIssues,
+  };
 
   if (args.quiet) {
     process.exit(result.sound ? 0 : 1);
@@ -107,13 +127,22 @@ function runCheck(args: Args): void {
     process.exit(result.sound ? 0 : 1);
   }
 
-  // Human-readable.
-  console.log(`Process: ${ast.title}`);
-  console.log(`Sound:   ${result.sound ? 'YES ✓' : 'NO ✗'}`);
-  console.log(`States:  ${result.stats.markingsExplored} explored (bounded: ${result.stats.bounded})`);
-  if (result.issues.length) {
-    console.log(`\nDefects (${result.issues.length}):`);
-    for (const i of result.issues) {
+  // Human-readable. Split defects by class so the user sees the distinction.
+  const soundnessDefects = result.issues.filter((i) => i.kind !== 'stall-vulnerable' && i.kind !== 'orphan-escalation');
+  const reliabilityDefects = result.issues.filter((i) => i.kind === 'stall-vulnerable' || i.kind === 'orphan-escalation');
+  console.log(`Process:    ${ast.title}`);
+  console.log(`Sound:      ${result.sound ? 'YES ✓' : 'NO ✗'}`);
+  console.log(`States:     ${result.stats.markingsExplored} explored (bounded: ${result.stats.bounded})`);
+  if (soundnessDefects.length) {
+    console.log(`\nControl-flow defects (${soundnessDefects.length}):`);
+    for (const i of soundnessDefects) {
+      const where = i.elementIds.length ? ` [${i.elementIds.join(', ')}]` : '';
+      console.log(`  • ${i.kind}${where}\n    ${i.message}`);
+    }
+  }
+  if (reliabilityDefects.length) {
+    console.log(`\nReliability defects (${reliabilityDefects.length}):`);
+    for (const i of reliabilityDefects) {
       const where = i.elementIds.length ? ` [${i.elementIds.join(', ')}]` : '';
       console.log(`  • ${i.kind}${where}\n    ${i.message}`);
     }
