@@ -2,11 +2,28 @@
 
 [![CI](https://github.com/adrianpuiu/Baton/actions/workflows/ci.yml/badge.svg)](https://github.com/adrianpuiu/Baton/actions/workflows/ci.yml)
 
-> **Business processes that run themselves.**
+> **SonarQube for BPMN — formal soundness checking for your business processes.**
 >
-> Describe a process in plain English → a **BPMN diagram**, an **enterprise BPMN XML file**, *and* a **live multi-agent workflow** that runs it. One PiperFlow DSL, three consumers. Self-hosted model — no per-token cost, no vendor lock-in, no data egress.
+> Point Baton at a process file (your own BPMN 2.0 export from Camunda, Signavio, or Appian, or Baton's PiperFlow DSL) and it tells you whether it's **sound** *before* you deploy it: can it deadlock? Are there dead branches? Does it complete improperly? No engine lock-in, runs locally, fits in CI.
 >
-> _A business-process diagram is already an execution spec — swimlanes are roles, tasks are steps, gateways are decisions. Baton is the compiler that turns the spec into a running system, and draws the BPMN for free._
+> The reliability layer most BPMS tools ship as *post-hoc* runtime dashboards, Baton proves **statically at design time** — engine-agnostic, on the BPMN you already have.
+
+## Install & run
+
+```bash
+npm install -g baton-bpmn
+baton check path/to/your.bpmn        # .pf (PiperFlow) auto-detected too
+```
+
+That's it. Exit `0` = sound, `1` = defects found (named, with the offending element), `2` = usage/parse error. Add `--json` for CI tooling, `--quiet` to rely on the exit code alone. Works offline; nothing leaves your machine.
+
+```bash
+baton check pr-123.bpmn --json || exit 1   # fail the PR on an unsound process
+```
+
+---
+
+> **Why this exists.** BPMN 2.0 was supposed to make business processes portable; it didn't — every engine implements execution differently (the same way BPEL failed before it). Meanwhile the AI-agent world races toward *autonomy*, which is the opposite of what enterprises actually buy: **reliability, governance, auditability, compliance**. Baton owns the engine-agnostic *analysis* plane that sits between "I described a process" and "it runs correctly wherever I run it." It proves properties about a process without executing it — so the verdict is independent of whichever BPMS you deploy to.
 
 ![Employee Onboarding process](diagrams/onboarding.png)
 

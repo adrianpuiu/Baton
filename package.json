@@ -1,5 +1,5 @@
 {
-  "name": "baton",
+  "name": "baton-bpmn",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -20,10 +20,20 @@
     "onboard:demo": "tsx scripts/onboard-demo.ts",
     "dev": "flue dev --target node",
     "build": "flue build --target node",
+    "build:cli": "tsc -p tsconfig.cli.json",
+    "prepublishOnly": "npm run build:cli",
     "start": "node dist/server.mjs",
     "run:design": "flue run design-process --target node",
     "venv": "python3 -m venv .venv && . .venv/bin/activate && pip install -U pip processpiper"
   },
+  "bin": {
+    "baton": "dist-cli/cli.js"
+  },
+  "files": [
+    "dist-cli",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@flue/runtime": "latest",
     "fast-xml-parser": "^5.9.2",

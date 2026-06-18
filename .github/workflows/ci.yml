@@ -42,5 +42,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Build the CLI artifact
+        # The CLI tests exercise the BUILT dist-cli/cli.js (the real product
+        # surface), so build it before the suite runs.
+        run: npm run build:cli
+
       - name: Test
         run: npm test

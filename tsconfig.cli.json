@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist-cli",
+    // No declaration files for the CLI build — it's a tool, not a library API.
+    "declaration": false,
+    "sourceMap": false
+  },
+  // ONLY the lean check path: the CLI entry + the compiler core (parser,
+  // importer, soundness, petri, types). Deliberately excludes everything that
+  // pulls in Flue / Hono / OpenTelemetry, so `npm i -g baton-bpmn` stays small
+  // and the install is fast + offline.
+  "include": [
+    "src/cli.ts",
+    "src/compiler/types.ts",
+    "src/compiler/parse.ts",
+    "src/compiler/petri.ts",
+    "src/compiler/soundness.ts",
+    "src/compiler/bpmn-import.ts"
+  ]
+}
