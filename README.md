@@ -197,6 +197,13 @@ came directly from observing real runs (the observability layer earned its keep)
   does, `renderDiagram` falls back to a faithful Graphviz structural rendering of
   the same AST (lanes as clusters, gateways as diamonds). *A valid process never
   fails to produce a diagram.*
+- **Direct AST→BPMN emitter** — processpiper's BPMN export runs inside the same
+  `draw()` call that fails, so a large process would silently *lose* its BPMN —
+  breaking the three-consumer contract exactly on the showcase processes that
+  need it. `emitBpmn()` turns the AST into valid OMG BPMN 2.0 XML directly (process,
+  lanes, every node type, sequence flows, a deterministic grid DI), with no
+  dependency on any layout engine. It runs on the fallback path, so **a valid
+  process never fails to produce BPMN either** — diagram *and* XML are guaranteed.
 - **Gateway-semantics detection** — if a generated exclusive gateway looks
   inverted (e.g. a recovery step on the "no" branch), the compiler emits a visible
   `⚠` comment **and** a runtime `log.warn`, so the defect surfaces in code and in

@@ -26,7 +26,11 @@ const r = await renderDiagram(dsl, join(root, 'diagrams', 'aiops-self-healing.pn
 console.log(`✓ Rendered: ${r.image.replace(root + '/', '')}${r.bpmn ? ` + ${r.bpmn.replace(root + '/', '')}` : ''}`);
 if (r.fallback) {
   console.log(`  ↳ processpiper layout failed (${r.fallbackReason}); used Graphviz structural fallback`);
-  console.log(`    NOTE: BPMN XML not emitted (processpiper's BPMN export runs inside its layout).`);
+  if (r.bpmn) {
+    console.log(`    ↳ BPMN XML emitted directly from the AST (the direct emitter covers the fallback path).`);
+  } else {
+    console.log(`    NOTE: BPMN XML not emitted (processpiper's BPMN export runs inside its layout).`);
+  }
 }
 
 // 3. Compile to a runnable Flue workflow (threading in any locked/generated skills)

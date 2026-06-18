@@ -10,6 +10,7 @@ diagrams/*.svg
 !diagrams/onboarding.png
 !diagrams/onboarding.bpmn
 !diagrams/aiops-self-healing-structural.png
+!diagrams/aiops-self-healing.bpmn
 # Generated Flue workflows are runnable (discovered flat in src/workflows/)
 # but curate them in git rather than committing every run.
 src/workflows/gen-*.ts

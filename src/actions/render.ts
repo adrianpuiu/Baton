@@ -1,7 +1,8 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { parsePiperFlow } from '../compiler/parse.js';
 import { toDot } from './graphviz.js';
+import { emitBpmn } from './bpmn.js';
 import { spawnCapture } from '../utils/spawn.js';
 
 const PYTHON = process.env.PYTHON ?? 'python3';
@@ -58,11 +59,21 @@ export async function renderDiagram(
     const fallbackPath = outputPath.replace(/\.(png|svg)$/i, '') + '-structural.png';
     try {
       await renderWithGraphviz(dot, fallbackPath);
-      return {
+      const result: RenderResult = {
         image: fallbackPath,
         fallback: true,
         fallbackReason: summarise(primaryErr),
       };
+      // processpiper's BPMN export runs inside the same draw() that just
+      // failed, so it's lost with the image. Emit BPMN directly from the
+      // AST instead — the "three consumers" contract holds even when the
+      // grid-layout engine gives up on a large/wide process.
+      if (opts.bpmn) {
+        const bpmnPath = outputPath.replace(/\.(png|svg)$/i, '') + '.bpmn';
+        await writeFile(bpmnPath, emitBpmn(ast, { slug: ast.title }));
+        result.bpmn = bpmnPath;
+      }
+      return result;
     } catch {
       // Graphviz not installed / also failed → propagate the original error.
       throw primaryErr;

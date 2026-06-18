@@ -1,0 +1,670 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    id="definitions_autonomous_self_healing_aiops_platform"
+    targetNamespace="http://baton/processes"
+    exporter="Baton" exporterVersion="1.0">
+  <bpmn:process id="process_autonomous_self_healing_aiops_platform" name="Autonomous Self-Healing AIOps Platform" isExecutable="false">
+    <bpmn:laneSet id="laneset_autonomous_self_healing_aiops_platform">
+      <bpmn:lane id="lane_monitoring_agent" name="Monitoring Agent">
+        <bpmn:flowNodeRef>node_start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_monitor_health</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_collect_metrics</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_collect_logs</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_collect_traces</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_detect_anomalies</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_classification_agent" name="Classification Agent">
+        <bpmn:flowNodeRef>node_classify_incident</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_assess_impact</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_critical_incident</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_diagnosis_agent" name="Diagnosis Agent">
+        <bpmn:flowNodeRef>node_rca</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_dependency_analysis</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_deployment_analysis</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_knowledge_agent" name="Knowledge Agent">
+        <bpmn:flowNodeRef>node_search_runbooks</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_search_incidents</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_known_resolution</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_planning_agent" name="Planning Agent">
+        <bpmn:flowNodeRef>node_generate_candidates</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_rank_strategies</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_confidence_score</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_confidence_high</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_risk_agent" name="Risk Agent">
+        <bpmn:flowNodeRef>node_risk_assessment</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_blast_radius</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_high_risk</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_human_operator" name="Human Operator">
+        <bpmn:flowNodeRef>node_approval_request</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_approved</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_execution_agent" name="Execution Agent">
+        <bpmn:flowNodeRef>node_canary_scope</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_apply_fix</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_rollout</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_validation_agent" name="Validation Agent">
+        <bpmn:flowNodeRef>node_validate_metrics</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_validate_logs</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_validate_traces</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_healing_success</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_recovery_agent" name="Recovery Agent">
+        <bpmn:flowNodeRef>node_rollback</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_alternative_fix</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_learning_agent" name="Learning Agent">
+        <bpmn:flowNodeRef>node_capture_outcome</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_update_kb</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_update_rankings</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_resume_monitoring</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_escalation_agent" name="Escalation Agent">
+        <bpmn:flowNodeRef>node_alert_operator</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_create_ticket</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_attach_diagnostics</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>node_end</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="node_start" name="Start">
+      <bpmn:outgoing>flow_0</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="node_monitor_health" name="Monitor Health">
+      <bpmn:incoming>flow_0</bpmn:incoming>
+      <bpmn:incoming>flow_45</bpmn:incoming>
+      <bpmn:outgoing>flow_1</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_collect_metrics" name="Collect Metrics">
+      <bpmn:incoming>flow_1</bpmn:incoming>
+      <bpmn:outgoing>flow_2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_collect_logs" name="Collect Logs">
+      <bpmn:incoming>flow_2</bpmn:incoming>
+      <bpmn:outgoing>flow_3</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_collect_traces" name="Collect Traces">
+      <bpmn:incoming>flow_3</bpmn:incoming>
+      <bpmn:outgoing>flow_4</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_detect_anomalies" name="Detect Anomalies">
+      <bpmn:incoming>flow_4</bpmn:incoming>
+      <bpmn:outgoing>flow_5</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_classify_incident" name="Classify Incident">
+      <bpmn:incoming>flow_5</bpmn:incoming>
+      <bpmn:outgoing>flow_6</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_assess_impact" name="Assess Business Impact">
+      <bpmn:incoming>flow_6</bpmn:incoming>
+      <bpmn:outgoing>flow_7</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="node_critical_incident" name="Critical Incident?">
+      <bpmn:incoming>flow_7</bpmn:incoming>
+      <bpmn:outgoing>flow_8</bpmn:outgoing>
+      <bpmn:outgoing>flow_9</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="node_rca" name="Root Cause Analysis">
+      <bpmn:incoming>flow_8</bpmn:incoming>
+      <bpmn:outgoing>flow_10</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_dependency_analysis" name="Dependency Analysis">
+      <bpmn:incoming>flow_10</bpmn:incoming>
+      <bpmn:outgoing>flow_11</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_deployment_analysis" name="Deployment Analysis">
+      <bpmn:incoming>flow_11</bpmn:incoming>
+      <bpmn:outgoing>flow_12</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_search_runbooks" name="Search Runbooks">
+      <bpmn:incoming>flow_12</bpmn:incoming>
+      <bpmn:outgoing>flow_13</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_search_incidents" name="Search Known Incidents">
+      <bpmn:incoming>flow_13</bpmn:incoming>
+      <bpmn:outgoing>flow_14</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="node_known_resolution" name="Known Resolution?">
+      <bpmn:incoming>flow_14</bpmn:incoming>
+      <bpmn:outgoing>flow_15</bpmn:outgoing>
+      <bpmn:outgoing>flow_16</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="node_generate_candidates" name="Generate Fix Candidates">
+      <bpmn:incoming>flow_15</bpmn:incoming>
+      <bpmn:incoming>flow_16</bpmn:incoming>
+      <bpmn:outgoing>flow_17</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_rank_strategies" name="Rank Strategies">
+      <bpmn:incoming>flow_17</bpmn:incoming>
+      <bpmn:outgoing>flow_18</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_confidence_score" name="Calculate Confidence">
+      <bpmn:incoming>flow_18</bpmn:incoming>
+      <bpmn:outgoing>flow_19</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="node_confidence_high" name="Confidence High?">
+      <bpmn:incoming>flow_19</bpmn:incoming>
+      <bpmn:outgoing>flow_20</bpmn:outgoing>
+      <bpmn:outgoing>flow_21</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="node_risk_assessment" name="Risk Assessment">
+      <bpmn:incoming>flow_20</bpmn:incoming>
+      <bpmn:outgoing>flow_22</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_blast_radius" name="Blast Radius Analysis">
+      <bpmn:incoming>flow_22</bpmn:incoming>
+      <bpmn:outgoing>flow_23</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="node_high_risk" name="High Risk Action?">
+      <bpmn:incoming>flow_23</bpmn:incoming>
+      <bpmn:outgoing>flow_24</bpmn:outgoing>
+      <bpmn:outgoing>flow_25</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:intermediateCatchEvent id="node_approval_request" name="Approval Required">
+      <bpmn:incoming>flow_21</bpmn:incoming>
+      <bpmn:incoming>flow_24</bpmn:incoming>
+      <bpmn:outgoing>flow_26</bpmn:outgoing>
+      <bpmn:messageEventDefinition />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:exclusiveGateway id="node_approved" name="Approved?">
+      <bpmn:incoming>flow_26</bpmn:incoming>
+      <bpmn:outgoing>flow_27</bpmn:outgoing>
+      <bpmn:outgoing>flow_28</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="node_canary_scope" name="Create Canary Scope">
+      <bpmn:incoming>flow_25</bpmn:incoming>
+      <bpmn:incoming>flow_27</bpmn:incoming>
+      <bpmn:outgoing>flow_29</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_apply_fix" name="Apply Selected Fix">
+      <bpmn:incoming>flow_29</bpmn:incoming>
+      <bpmn:outgoing>flow_30</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_rollout" name="Progressive Rollout">
+      <bpmn:incoming>flow_30</bpmn:incoming>
+      <bpmn:outgoing>flow_31</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_validate_metrics" name="Validate Metrics">
+      <bpmn:incoming>flow_31</bpmn:incoming>
+      <bpmn:incoming>flow_38</bpmn:incoming>
+      <bpmn:outgoing>flow_32</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_validate_logs" name="Validate Logs">
+      <bpmn:incoming>flow_32</bpmn:incoming>
+      <bpmn:outgoing>flow_33</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_validate_traces" name="Validate Traces">
+      <bpmn:incoming>flow_33</bpmn:incoming>
+      <bpmn:outgoing>flow_34</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="node_healing_success" name="Healing Successful?">
+      <bpmn:incoming>flow_34</bpmn:incoming>
+      <bpmn:outgoing>flow_35</bpmn:outgoing>
+      <bpmn:outgoing>flow_36</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="node_rollback" name="Rollback Changes">
+      <bpmn:incoming>flow_36</bpmn:incoming>
+      <bpmn:outgoing>flow_37</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_alternative_fix" name="Apply Alternative Fix">
+      <bpmn:incoming>flow_37</bpmn:incoming>
+      <bpmn:outgoing>flow_38</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_capture_outcome" name="Capture Incident Outcome">
+      <bpmn:incoming>flow_35</bpmn:incoming>
+      <bpmn:outgoing>flow_39</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_update_kb" name="Update Knowledge Base">
+      <bpmn:incoming>flow_39</bpmn:incoming>
+      <bpmn:outgoing>flow_40</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_update_rankings" name="Update Success Rankings">
+      <bpmn:incoming>flow_40</bpmn:incoming>
+      <bpmn:outgoing>flow_41</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_resume_monitoring" name="Resume Monitoring">
+      <bpmn:incoming>flow_9</bpmn:incoming>
+      <bpmn:incoming>flow_41</bpmn:incoming>
+      <bpmn:outgoing>flow_45</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_alert_operator" name="Alert Operator">
+      <bpmn:incoming>flow_28</bpmn:incoming>
+      <bpmn:outgoing>flow_42</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_create_ticket" name="Create Incident Ticket">
+      <bpmn:incoming>flow_42</bpmn:incoming>
+      <bpmn:outgoing>flow_43</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="node_attach_diagnostics" name="Attach Diagnostics">
+      <bpmn:incoming>flow_43</bpmn:incoming>
+      <bpmn:outgoing>flow_44</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="node_end" name="End">
+      <bpmn:incoming>flow_44</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_0" sourceRef="node_start" targetRef="node_monitor_health" />
+    <bpmn:sequenceFlow id="flow_1" sourceRef="node_monitor_health" targetRef="node_collect_metrics" />
+    <bpmn:sequenceFlow id="flow_2" sourceRef="node_collect_metrics" targetRef="node_collect_logs" />
+    <bpmn:sequenceFlow id="flow_3" sourceRef="node_collect_logs" targetRef="node_collect_traces" />
+    <bpmn:sequenceFlow id="flow_4" sourceRef="node_collect_traces" targetRef="node_detect_anomalies" />
+    <bpmn:sequenceFlow id="flow_5" sourceRef="node_detect_anomalies" targetRef="node_classify_incident" />
+    <bpmn:sequenceFlow id="flow_6" sourceRef="node_classify_incident" targetRef="node_assess_impact" />
+    <bpmn:sequenceFlow id="flow_7" sourceRef="node_assess_impact" targetRef="node_critical_incident" />
+    <bpmn:sequenceFlow id="flow_8" name="Yes" sourceRef="node_critical_incident" targetRef="node_rca" />
+    <bpmn:sequenceFlow id="flow_9" name="No" sourceRef="node_critical_incident" targetRef="node_resume_monitoring" />
+    <bpmn:sequenceFlow id="flow_10" sourceRef="node_rca" targetRef="node_dependency_analysis" />
+    <bpmn:sequenceFlow id="flow_11" sourceRef="node_dependency_analysis" targetRef="node_deployment_analysis" />
+    <bpmn:sequenceFlow id="flow_12" sourceRef="node_deployment_analysis" targetRef="node_search_runbooks" />
+    <bpmn:sequenceFlow id="flow_13" sourceRef="node_search_runbooks" targetRef="node_search_incidents" />
+    <bpmn:sequenceFlow id="flow_14" sourceRef="node_search_incidents" targetRef="node_known_resolution" />
+    <bpmn:sequenceFlow id="flow_15" name="Yes" sourceRef="node_known_resolution" targetRef="node_generate_candidates" />
+    <bpmn:sequenceFlow id="flow_16" name="No" sourceRef="node_known_resolution" targetRef="node_generate_candidates" />
+    <bpmn:sequenceFlow id="flow_17" sourceRef="node_generate_candidates" targetRef="node_rank_strategies" />
+    <bpmn:sequenceFlow id="flow_18" sourceRef="node_rank_strategies" targetRef="node_confidence_score" />
+    <bpmn:sequenceFlow id="flow_19" sourceRef="node_confidence_score" targetRef="node_confidence_high" />
+    <bpmn:sequenceFlow id="flow_20" name="Yes" sourceRef="node_confidence_high" targetRef="node_risk_assessment" />
+    <bpmn:sequenceFlow id="flow_21" name="No" sourceRef="node_confidence_high" targetRef="node_approval_request" />
+    <bpmn:sequenceFlow id="flow_22" sourceRef="node_risk_assessment" targetRef="node_blast_radius" />
+    <bpmn:sequenceFlow id="flow_23" sourceRef="node_blast_radius" targetRef="node_high_risk" />
+    <bpmn:sequenceFlow id="flow_24" name="Yes" sourceRef="node_high_risk" targetRef="node_approval_request" />
+    <bpmn:sequenceFlow id="flow_25" name="No" sourceRef="node_high_risk" targetRef="node_canary_scope" />
+    <bpmn:sequenceFlow id="flow_26" sourceRef="node_approval_request" targetRef="node_approved" />
+    <bpmn:sequenceFlow id="flow_27" name="Yes" sourceRef="node_approved" targetRef="node_canary_scope" />
+    <bpmn:sequenceFlow id="flow_28" name="No" sourceRef="node_approved" targetRef="node_alert_operator" />
+    <bpmn:sequenceFlow id="flow_29" sourceRef="node_canary_scope" targetRef="node_apply_fix" />
+    <bpmn:sequenceFlow id="flow_30" sourceRef="node_apply_fix" targetRef="node_rollout" />
+    <bpmn:sequenceFlow id="flow_31" sourceRef="node_rollout" targetRef="node_validate_metrics" />
+    <bpmn:sequenceFlow id="flow_32" sourceRef="node_validate_metrics" targetRef="node_validate_logs" />
+    <bpmn:sequenceFlow id="flow_33" sourceRef="node_validate_logs" targetRef="node_validate_traces" />
+    <bpmn:sequenceFlow id="flow_34" sourceRef="node_validate_traces" targetRef="node_healing_success" />
+    <bpmn:sequenceFlow id="flow_35" name="Yes" sourceRef="node_healing_success" targetRef="node_capture_outcome" />
+    <bpmn:sequenceFlow id="flow_36" name="No" sourceRef="node_healing_success" targetRef="node_rollback" />
+    <bpmn:sequenceFlow id="flow_37" sourceRef="node_rollback" targetRef="node_alternative_fix" />
+    <bpmn:sequenceFlow id="flow_38" sourceRef="node_alternative_fix" targetRef="node_validate_metrics" />
+    <bpmn:sequenceFlow id="flow_39" sourceRef="node_capture_outcome" targetRef="node_update_kb" />
+    <bpmn:sequenceFlow id="flow_40" sourceRef="node_update_kb" targetRef="node_update_rankings" />
+    <bpmn:sequenceFlow id="flow_41" sourceRef="node_update_rankings" targetRef="node_resume_monitoring" />
+    <bpmn:sequenceFlow id="flow_42" sourceRef="node_alert_operator" targetRef="node_create_ticket" />
+    <bpmn:sequenceFlow id="flow_43" sourceRef="node_create_ticket" targetRef="node_attach_diagnostics" />
+    <bpmn:sequenceFlow id="flow_44" sourceRef="node_attach_diagnostics" targetRef="node_end" />
+    <bpmn:sequenceFlow id="flow_45" sourceRef="node_resume_monitoring" targetRef="node_monitor_health" />
+  </bpmn:process>
+  <bpmn:collaboration id="collaboration_autonomous_self_healing_aiops_platform">
+    <bpmn:participant id="participant_agent_core" name="Agent Core" processRef="process_autonomous_self_healing_aiops_platform" />
+    <bpmn:participant id="participant_risk_management" name="Risk Management" processRef="process_autonomous_self_healing_aiops_platform" />
+    <bpmn:participant id="participant_remediation_system" name="Remediation System" processRef="process_autonomous_self_healing_aiops_platform" />
+    <bpmn:participant id="participant_learning_system" name="Learning System" processRef="process_autonomous_self_healing_aiops_platform" />
+    <bpmn:participant id="participant_escalation_system" name="Escalation System" processRef="process_autonomous_self_healing_aiops_platform" />
+  </bpmn:collaboration>
+  <bpmndi:BPMNDiagram id="diagram_autonomous_self_healing_aiops_platform" name="Autonomous Self-Healing AIOps Platform">
+    <bpmndi:BPMNPlane id="plane_autonomous_self_healing_aiops_platform" bpmnElement="collaboration_autonomous_self_healing_aiops_platform">
+      <bpmndi:BPMNShape id="shape_lane_monitoring_agent" bpmnElement="lane_monitoring_agent">
+        <dc:Bounds x="100" y="80" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_classification_agent" bpmnElement="lane_classification_agent">
+        <dc:Bounds x="100" y="240" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_diagnosis_agent" bpmnElement="lane_diagnosis_agent">
+        <dc:Bounds x="100" y="400" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_knowledge_agent" bpmnElement="lane_knowledge_agent">
+        <dc:Bounds x="100" y="560" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_planning_agent" bpmnElement="lane_planning_agent">
+        <dc:Bounds x="100" y="720" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_risk_agent" bpmnElement="lane_risk_agent">
+        <dc:Bounds x="100" y="880" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_human_operator" bpmnElement="lane_human_operator">
+        <dc:Bounds x="100" y="1040" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_execution_agent" bpmnElement="lane_execution_agent">
+        <dc:Bounds x="100" y="1200" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_validation_agent" bpmnElement="lane_validation_agent">
+        <dc:Bounds x="100" y="1360" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_recovery_agent" bpmnElement="lane_recovery_agent">
+        <dc:Bounds x="100" y="1520" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_learning_agent" bpmnElement="lane_learning_agent">
+        <dc:Bounds x="100" y="1680" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_lane_escalation_agent" bpmnElement="lane_escalation_agent">
+        <dc:Bounds x="100" y="1840" width="5600" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_participant_agent_core" bpmnElement="participant_agent_core" isHorizontal="true">
+        <dc:Bounds x="60" y="70" width="30" height="820" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_participant_risk_management" bpmnElement="participant_risk_management" isHorizontal="true">
+        <dc:Bounds x="60" y="870" width="30" height="340" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_participant_remediation_system" bpmnElement="participant_remediation_system" isHorizontal="true">
+        <dc:Bounds x="60" y="1190" width="30" height="500" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_participant_learning_system" bpmnElement="participant_learning_system" isHorizontal="true">
+        <dc:Bounds x="60" y="1670" width="30" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_participant_escalation_system" bpmnElement="participant_escalation_system" isHorizontal="true">
+        <dc:Bounds x="60" y="1830" width="30" height="180" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_start" bpmnElement="node_start">
+        <dc:Bounds x="222" y="142" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_monitor_health" bpmnElement="node_monitor_health">
+        <dc:Bounds x="1785" y="120" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_collect_metrics" bpmnElement="node_collect_metrics">
+        <dc:Bounds x="505" y="120" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_collect_logs" bpmnElement="node_collect_logs">
+        <dc:Bounds x="665" y="120" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_collect_traces" bpmnElement="node_collect_traces">
+        <dc:Bounds x="825" y="120" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_detect_anomalies" bpmnElement="node_detect_anomalies">
+        <dc:Bounds x="985" y="120" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_classify_incident" bpmnElement="node_classify_incident">
+        <dc:Bounds x="1145" y="280" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_assess_impact" bpmnElement="node_assess_impact">
+        <dc:Bounds x="1305" y="280" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_critical_incident" bpmnElement="node_critical_incident">
+        <dc:Bounds x="1495" y="295" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_rca" bpmnElement="node_rca">
+        <dc:Bounds x="1625" y="440" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_dependency_analysis" bpmnElement="node_dependency_analysis">
+        <dc:Bounds x="1785" y="440" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_deployment_analysis" bpmnElement="node_deployment_analysis">
+        <dc:Bounds x="1945" y="440" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_search_runbooks" bpmnElement="node_search_runbooks">
+        <dc:Bounds x="2105" y="600" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_search_incidents" bpmnElement="node_search_incidents">
+        <dc:Bounds x="2265" y="600" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_known_resolution" bpmnElement="node_known_resolution">
+        <dc:Bounds x="2455" y="615" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_generate_candidates" bpmnElement="node_generate_candidates">
+        <dc:Bounds x="2585" y="760" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_rank_strategies" bpmnElement="node_rank_strategies">
+        <dc:Bounds x="2745" y="760" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_confidence_score" bpmnElement="node_confidence_score">
+        <dc:Bounds x="2905" y="760" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_confidence_high" bpmnElement="node_confidence_high">
+        <dc:Bounds x="3095" y="775" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_risk_assessment" bpmnElement="node_risk_assessment">
+        <dc:Bounds x="3225" y="920" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_blast_radius" bpmnElement="node_blast_radius">
+        <dc:Bounds x="3385" y="920" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_high_risk" bpmnElement="node_high_risk">
+        <dc:Bounds x="3575" y="935" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_approval_request" bpmnElement="node_approval_request">
+        <dc:Bounds x="3742" y="1102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_approved" bpmnElement="node_approved">
+        <dc:Bounds x="3415" y="1095" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_canary_scope" bpmnElement="node_canary_scope">
+        <dc:Bounds x="3705" y="1240" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_apply_fix" bpmnElement="node_apply_fix">
+        <dc:Bounds x="3865" y="1240" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_rollout" bpmnElement="node_rollout">
+        <dc:Bounds x="4025" y="1240" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_validate_metrics" bpmnElement="node_validate_metrics">
+        <dc:Bounds x="5145" y="1400" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_validate_logs" bpmnElement="node_validate_logs">
+        <dc:Bounds x="4345" y="1400" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_validate_traces" bpmnElement="node_validate_traces">
+        <dc:Bounds x="4505" y="1400" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_healing_success" bpmnElement="node_healing_success">
+        <dc:Bounds x="4695" y="1415" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_rollback" bpmnElement="node_rollback">
+        <dc:Bounds x="4825" y="1560" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_alternative_fix" bpmnElement="node_alternative_fix">
+        <dc:Bounds x="4985" y="1560" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_capture_outcome" bpmnElement="node_capture_outcome">
+        <dc:Bounds x="4825" y="1720" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_update_kb" bpmnElement="node_update_kb">
+        <dc:Bounds x="4985" y="1720" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_update_rankings" bpmnElement="node_update_rankings">
+        <dc:Bounds x="5145" y="1720" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_resume_monitoring" bpmnElement="node_resume_monitoring">
+        <dc:Bounds x="5305" y="1720" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_alert_operator" bpmnElement="node_alert_operator">
+        <dc:Bounds x="3545" y="1880" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_create_ticket" bpmnElement="node_create_ticket">
+        <dc:Bounds x="3705" y="1880" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_attach_diagnostics" bpmnElement="node_attach_diagnostics">
+        <dc:Bounds x="3865" y="1880" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_node_end" bpmnElement="node_end">
+        <dc:Bounds x="4062" y="1902" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_0" bpmnElement="flow_0">
+        <di:waypoint x="240" y="160" />
+        <di:waypoint x="1840" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_1" bpmnElement="flow_1">
+        <di:waypoint x="1840" y="160" />
+        <di:waypoint x="560" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_2" bpmnElement="flow_2">
+        <di:waypoint x="560" y="160" />
+        <di:waypoint x="720" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_3" bpmnElement="flow_3">
+        <di:waypoint x="720" y="160" />
+        <di:waypoint x="880" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_4" bpmnElement="flow_4">
+        <di:waypoint x="880" y="160" />
+        <di:waypoint x="1040" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_5" bpmnElement="flow_5">
+        <di:waypoint x="1040" y="160" />
+        <di:waypoint x="1200" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_6" bpmnElement="flow_6">
+        <di:waypoint x="1200" y="320" />
+        <di:waypoint x="1360" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_7" bpmnElement="flow_7">
+        <di:waypoint x="1360" y="320" />
+        <di:waypoint x="1520" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_8" bpmnElement="flow_8">
+        <di:waypoint x="1520" y="320" />
+        <di:waypoint x="1680" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_9" bpmnElement="flow_9">
+        <di:waypoint x="1520" y="320" />
+        <di:waypoint x="5360" y="1760" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_10" bpmnElement="flow_10">
+        <di:waypoint x="1680" y="480" />
+        <di:waypoint x="1840" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_11" bpmnElement="flow_11">
+        <di:waypoint x="1840" y="480" />
+        <di:waypoint x="2000" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_12" bpmnElement="flow_12">
+        <di:waypoint x="2000" y="480" />
+        <di:waypoint x="2160" y="640" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_13" bpmnElement="flow_13">
+        <di:waypoint x="2160" y="640" />
+        <di:waypoint x="2320" y="640" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_14" bpmnElement="flow_14">
+        <di:waypoint x="2320" y="640" />
+        <di:waypoint x="2480" y="640" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_15" bpmnElement="flow_15">
+        <di:waypoint x="2480" y="640" />
+        <di:waypoint x="2640" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_16" bpmnElement="flow_16">
+        <di:waypoint x="2480" y="640" />
+        <di:waypoint x="2640" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_17" bpmnElement="flow_17">
+        <di:waypoint x="2640" y="800" />
+        <di:waypoint x="2800" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_18" bpmnElement="flow_18">
+        <di:waypoint x="2800" y="800" />
+        <di:waypoint x="2960" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_19" bpmnElement="flow_19">
+        <di:waypoint x="2960" y="800" />
+        <di:waypoint x="3120" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_20" bpmnElement="flow_20">
+        <di:waypoint x="3120" y="800" />
+        <di:waypoint x="3280" y="960" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_21" bpmnElement="flow_21">
+        <di:waypoint x="3120" y="800" />
+        <di:waypoint x="3760" y="1120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_22" bpmnElement="flow_22">
+        <di:waypoint x="3280" y="960" />
+        <di:waypoint x="3440" y="960" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_23" bpmnElement="flow_23">
+        <di:waypoint x="3440" y="960" />
+        <di:waypoint x="3600" y="960" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_24" bpmnElement="flow_24">
+        <di:waypoint x="3600" y="960" />
+        <di:waypoint x="3760" y="1120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_25" bpmnElement="flow_25">
+        <di:waypoint x="3600" y="960" />
+        <di:waypoint x="3760" y="1280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_26" bpmnElement="flow_26">
+        <di:waypoint x="3760" y="1120" />
+        <di:waypoint x="3440" y="1120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_27" bpmnElement="flow_27">
+        <di:waypoint x="3440" y="1120" />
+        <di:waypoint x="3760" y="1280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_28" bpmnElement="flow_28">
+        <di:waypoint x="3440" y="1120" />
+        <di:waypoint x="3600" y="1920" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_29" bpmnElement="flow_29">
+        <di:waypoint x="3760" y="1280" />
+        <di:waypoint x="3920" y="1280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_30" bpmnElement="flow_30">
+        <di:waypoint x="3920" y="1280" />
+        <di:waypoint x="4080" y="1280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_31" bpmnElement="flow_31">
+        <di:waypoint x="4080" y="1280" />
+        <di:waypoint x="5200" y="1440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_32" bpmnElement="flow_32">
+        <di:waypoint x="5200" y="1440" />
+        <di:waypoint x="4400" y="1440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_33" bpmnElement="flow_33">
+        <di:waypoint x="4400" y="1440" />
+        <di:waypoint x="4560" y="1440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_34" bpmnElement="flow_34">
+        <di:waypoint x="4560" y="1440" />
+        <di:waypoint x="4720" y="1440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_35" bpmnElement="flow_35">
+        <di:waypoint x="4720" y="1440" />
+        <di:waypoint x="4880" y="1760" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_36" bpmnElement="flow_36">
+        <di:waypoint x="4720" y="1440" />
+        <di:waypoint x="4880" y="1600" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_37" bpmnElement="flow_37">
+        <di:waypoint x="4880" y="1600" />
+        <di:waypoint x="5040" y="1600" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_38" bpmnElement="flow_38">
+        <di:waypoint x="5040" y="1600" />
+        <di:waypoint x="5200" y="1440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_39" bpmnElement="flow_39">
+        <di:waypoint x="4880" y="1760" />
+        <di:waypoint x="5040" y="1760" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_40" bpmnElement="flow_40">
+        <di:waypoint x="5040" y="1760" />
+        <di:waypoint x="5200" y="1760" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_41" bpmnElement="flow_41">
+        <di:waypoint x="5200" y="1760" />
+        <di:waypoint x="5360" y="1760" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_42" bpmnElement="flow_42">
+        <di:waypoint x="3600" y="1920" />
+        <di:waypoint x="3760" y="1920" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_43" bpmnElement="flow_43">
+        <di:waypoint x="3760" y="1920" />
+        <di:waypoint x="3920" y="1920" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_44" bpmnElement="flow_44">
+        <di:waypoint x="3920" y="1920" />
+        <di:waypoint x="4080" y="1920" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_45" bpmnElement="flow_45">
+        <di:waypoint x="5360" y="1760" />
+        <di:waypoint x="1840" y="160" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
