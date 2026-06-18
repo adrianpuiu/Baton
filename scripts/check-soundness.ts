@@ -10,16 +10,20 @@
  */
 import { readFileSync } from 'node:fs';
 import { parsePiperFlow } from '../src/compiler/parse.js';
+import { importBpmn } from '../src/compiler/bpmn-import.js';
 import { checkSoundness } from '../src/compiler/soundness.js';
 
 const file = process.argv[2];
 if (!file) {
-  console.error('usage: check-soundness.ts <process.pf>');
+  console.error('usage: check-soundness.ts <process.pf|process.bpmn>');
   process.exit(2);
 }
 
-const dsl = readFileSync(file, 'utf8');
-const ast = parsePiperFlow(dsl);
+const src = readFileSync(file, 'utf8');
+// Auto-detect by extension: .bpmn → import existing BPMN (Camunda/Signavio/Appian
+// exports); anything else → PiperFlow. This is what makes Baton an intake tool,
+// not just an authoring tool — point it at a process you already have.
+const ast = file.toLowerCase().endsWith('.bpmn') ? importBpmn(src) : parsePiperFlow(src);
 const result = checkSoundness(ast);
 
 console.log(`Process: ${ast.title}`);

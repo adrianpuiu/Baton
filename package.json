@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@flue/runtime": "latest",
+    "fast-xml-parser": "^5.9.2",
     "hono": "^4.6.0",
     "valibot": "^1.0.0"
   },
@@ -33,15 +34,15 @@
     "@flue/cli": "latest",
     "@flue/opentelemetry": "latest",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-node": "^0.55.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.55.0",
-    "@opentelemetry/sdk-trace-base": "^1.28.0",
     "@opentelemetry/resources": "^1.28.0",
+    "@opentelemetry/sdk-node": "^0.55.0",
+    "@opentelemetry/sdk-trace-base": "^1.28.0",
     "@opentelemetry/semantic-conventions": "^1.28.0",
     "@types/node": "^22.0.0",
+    "eslint": "^10.5.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "eslint": "^10.5.0",
     "typescript-eslint": "^8.61.0"
   }
 }
