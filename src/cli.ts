@@ -108,6 +108,7 @@ function runCheck(args: Args): void {
     stats: soundness.stats,
     notes: soundness.notes,
     issues: allIssues,
+    witnesses: soundness.witnesses,
   };
 
   if (args.quiet) {
@@ -123,6 +124,7 @@ function runCheck(args: Args): void {
       stats: result.stats,
       notes: result.notes,
       defects: result.issues.map((i) => ({ kind: i.kind, elementIds: i.elementIds, message: i.message })),
+      witnesses: result.witnesses,
     }, null, 2));
     process.exit(result.sound ? 0 : 1);
   }
@@ -145,6 +147,12 @@ function runCheck(args: Args): void {
     for (const i of reliabilityDefects) {
       const where = i.elementIds.length ? ` [${i.elementIds.join(', ')}]` : '';
       console.log(`  • ${i.kind}${where}\n    ${i.message}`);
+    }
+  }
+  if (result.witnesses.length) {
+    console.log('\nExecution witnesses:');
+    for (const witness of result.witnesses) {
+      console.log(`  • ${witness.kind}: ${witness.labels.join(' → ') || '(empty path)'}`);
     }
   }
   if (result.notes.length) {

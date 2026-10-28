@@ -61,7 +61,13 @@ test('toPetriNet: every place/transition/arc is wired; source & sink present', (
 // ---------------------------------------------------------------------------
 
 test('sound: a simple linear process is sound', () => {
-  assert.equal(check(LINEAR).sound, true);
+  const result = check(LINEAR);
+  assert.equal(result.sound, true);
+  assert.deepEqual(result.witnesses, [{
+    kind: 'completion',
+    elementIds: ['s', 'build', 'e'],
+    labels: ['Start', 'Build', 'End'],
+  }]);
 });
 
 test('sound: a balanced parallel split + matching join is sound', () => {
@@ -104,6 +110,34 @@ join -> e`;
   assert.equal(check(dsl).sound, true);
 });
 
+test('witness: parallel branches produce a single shortest completion sequence', () => {
+  const result = check(BALANCED_PARALLEL);
+  const completion = result.witnesses.find((w) => w.kind === 'completion');
+  assert.ok(completion);
+  assert.equal(completion!.labels[0], 'Start');
+  assert.equal(completion!.labels.at(-1), 'End');
+  assert.ok(completion!.labels.includes('Left'));
+  assert.ok(completion!.labels.includes('Right'));
+  assert.equal(result.witnesses.filter((w) => w.kind === 'completion').length, 1);
+});
+
+test('witness: loops do not duplicate markings or prevent shortest completion recovery', () => {
+  const dsl = `title: loop
+lane: A
+(start) as s
+[Work] as work
+<Again?> as again
+(end) as e
+s -> work -> again
+again -> work
+again -> e`;
+  const result = check(dsl);
+  assert.equal(result.stats.bounded, true);
+  const completion = result.witnesses.find((w) => w.kind === 'completion');
+  assert.ok(completion);
+  assert.deepEqual(completion!.labels, ['Start', 'Work', 'Again?', 'End']);
+});
+
 // ---------------------------------------------------------------------------
 // THE classic BPMN bug: parallel split, missing branch at the join.
 // ---------------------------------------------------------------------------
@@ -126,6 +160,24 @@ join -> e`;
   const issue = r.issues.find((i) => i.kind === 'parallel-branch-imbalance');
   assert.ok(issue, 'flagged as a parallel-branch-imbalance');
   assert.ok(issue!.elementIds.includes('split'), 'points at the split');
+});
+
+test('witness: a dead-end activity has a named counterexample path', () => {
+  const dsl = `title: dead-end
+lane: A
+(start) as s
+<Continue?> as choice
+[Stuck step] as stuck
+(end) as e
+s -> choice
+choice -> e
+choice -> stuck`;
+  const r = check(dsl);
+  const deadlock = r.witnesses.find((w) => w.kind === 'deadlock');
+  assert.ok(deadlock, 'includes a concrete deadlock counterexample');
+  assert.ok(deadlock!.labels.includes('Start'));
+  assert.ok(deadlock!.labels.includes('Continue?'));
+  assert.ok(deadlock!.labels.includes('Stuck step'));
 });
 
 test('defect: parallel split with NEITHER branch rejoining → imbalance', () => {

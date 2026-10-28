@@ -21,6 +21,8 @@ baton check path/to/your.bpmn        # .pf (PiperFlow) auto-detected too
 
 That's it. Exit `0` = sound, `1` = defects found (named, with the offending element), `2` = usage/parse error. Add `--json` for CI tooling, `--quiet` to rely on the exit code alone. Works offline; nothing leaves your machine.
 
+`baton check` also prints a shortest discovered path to clean completion and a named counterexample for each reachable deadlock marking. JSON output exposes these under `witnesses` (`kind`, `elementIds`, and human-readable `labels`). Witnesses are concrete examples, not an enumeration of all possible traces; if a reachability bound is hit, the result remains unverified and says so in `stats.bounded` and `notes`.
+
 ```bash
 baton check pr-123.bpmn --json || exit 1   # fail the PR on an unsound process
 ```

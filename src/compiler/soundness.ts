@@ -57,9 +57,20 @@ export interface SoundnessIssue {
   elementIds: string[];
 }
 
+/** A concrete transition sequence discovered during bounded reachability. */
+export interface BehaviorWitness {
+  kind: 'completion' | 'deadlock';
+  /** BPMN/PiperFlow element ids in execution order (repeats are preserved). */
+  elementIds: string[];
+  /** Human-readable element labels in the same order. */
+  labels: string[];
+}
+
 export interface SoundnessResult {
   sound: boolean;
   issues: SoundnessIssue[];
+  /** One shortest discovered clean-completion path and one path per deadlock marking. */
+  witnesses: BehaviorWitness[];
   /** Honest caveats (approximations, bounds hit). Empty when fully verified. */
   notes: string[];
   /** Stats for the curious / for telemetry. */
@@ -98,6 +109,11 @@ export function checkSoundness(ast: ProcessAST): SoundnessResult {
   const finalKey = net.sinkId;
   const reachable: Marking[] = [start];
   const seen = new Set<string>([markingKey(start)]);
+  // First discovery in BFS gives a shortest path to each marking. Keeping one
+  // predecessor per marking avoids enumerating potentially infinite traces.
+  const predecessors = new Map<string, { previousKey: string; transitionId: string }>();
+  const deadlockMarkingKeys: string[] = [];
+  let completionMarkingKey: string | undefined;
   const firedTransitions = new Set<string>();
   let reachedFinal = false;
   let improperCompletion = false;
@@ -114,6 +130,7 @@ export function checkSoundness(ast: ProcessAST): SoundnessResult {
       reachedFinal = true;
       const leftovers = [...m.entries()].filter(([p, n]) => p !== finalKey && n > 0);
       if (leftovers.length > 0) improperCompletion = true;
+      else completionMarkingKey ??= markingKey(m);
     }
 
     // Enabled transitions from this marking.
@@ -133,6 +150,7 @@ export function checkSoundness(ast: ProcessAST): SoundnessResult {
           message: `Process can deadlock: a token can reach ${[...stuckFeeds].map(issueEl).join(', ') || 'a place'} and no transition can fire from there. (Common cause: a parallel join expecting more branches than actually rejoin.)`,
           elementIds: [...stuckFeeds],
         });
+        deadlockMarkingKeys.push(markingKey(m));
       }
       continue; // no successors from a stuck marking
     }
@@ -143,6 +161,7 @@ export function checkSoundness(ast: ProcessAST): SoundnessResult {
       const key = markingKey(next);
       if (!seen.has(key)) {
         seen.add(key);
+        predecessors.set(key, { previousKey: markingKey(m), transitionId: t.id });
         reachable.push(next);
       }
     }
@@ -191,10 +210,34 @@ export function checkSoundness(ast: ProcessAST): SoundnessResult {
     notes.push(`State space exceeded the bound (${MAX_MARKINGS} markings or ${MAX_TOTAL_TOKENS} tokens). Could not fully verify; no false "sound" verdict was given — treat as unverified.`);
   }
 
+  // Reconstruct only concrete witnesses for states actually processed. When a
+  // bound is hit, the result does not imply that other paths/states were checked.
+  const transitionsById = new Map(net.transitions.map((t) => [t.id, t] as const));
+  const witnessFor = (kind: BehaviorWitness['kind'], targetKey: string): BehaviorWitness => {
+    const transitionIds: string[] = [];
+    let key = targetKey;
+    while (predecessors.has(key)) {
+      const predecessor = predecessors.get(key)!;
+      transitionIds.push(predecessor.transitionId);
+      key = predecessor.previousKey;
+    }
+    transitionIds.reverse();
+    const elementIds = transitionIds.map((id) => transitionsById.get(id)!.elementId);
+    return {
+      kind,
+      elementIds,
+      labels: elementIds.map(issueEl),
+    };
+  };
+  const witnesses: BehaviorWitness[] = [];
+  if (completionMarkingKey) witnesses.push(witnessFor('completion', completionMarkingKey));
+  for (const key of deadlockMarkingKeys) witnesses.push(witnessFor('deadlock', key));
+
   const sound = issues.filter((i) => i.kind !== 'approximation').length === 0 && bounded;
   return {
     sound,
     issues,
+    witnesses,
     notes,
     stats: { markingsExplored: reachable.length, transitions: net.transitions.length, bounded },
   };

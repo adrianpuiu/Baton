@@ -94,6 +94,8 @@ test('CLI: check on a SOUND .pf exits 0 and reports YES', () => {
   const r = run('check', soundPf);
   assert.equal(r.code, 0, `expected 0, got ${r.code}\n${r.stdout}`);
   assert.match(r.stdout, /Sound:\s+YES/);
+  assert.match(r.stdout, /Execution witnesses:/);
+  assert.match(r.stdout, /Start.*→.*End/);
 });
 
 test('CLI: check on an UNSOUND .bpmn exits 1 and names a defect', () => {
@@ -113,6 +115,8 @@ test('CLI: --json emits machine-readable output with the contract shape', () => 
   assert.equal(parsed.process, 'Broken');
   assert.ok(Array.isArray(parsed.defects));
   assert.ok(parsed.defects.length > 0);
+  assert.ok(Array.isArray(parsed.witnesses));
+  assert.ok(parsed.witnesses.some((w: { kind: string; labels: unknown }) => w.kind === 'completion' && Array.isArray(w.labels)));
   assert.ok(parsed.defects.every((d: { kind: string; elementIds: unknown; message: string }) => d.kind && Array.isArray(d.elementIds) && typeof d.message === 'string'));
 });
 
